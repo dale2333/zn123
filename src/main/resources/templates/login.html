@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>车辆租赁管理系统</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <!-- Thymeleaf管理的样式表 -->
+    <link rel="stylesheet" th:href="@{/layui/css/layui.css}" media="all">
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            /* Thymeleaf背景路径管理 */
+            background-image: url("../static/images/9.png");
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .layui-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .admin-login-background {
+            width: 360px;
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        .logo-title h1 {
+            color: #119DE3FF;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .layui-input {
+            height: 44px !important;
+            border-radius: 6px !important;
+            border: 1px solid #e0e0e0 !important;
+            margin-bottom: 15px;
+        }
+
+        #captcha-img {
+            height: 44px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-container">
+    <div class="admin-login-background">
+        <div class="login-form">
+            <form id="loginForm" th:action="@{/login}" method="post">
+                <div class="logo-title">
+                    <h1>车辆租赁管理系统</h1>
+                </div>
+
+                <!-- 用户类型切换 -->
+                <div class="layui-btn-container" id="login-type">
+                    <button type="button" class="layui-btn layui-btn-primary">用户</button>
+                    <button type="button" class="layui-btn layui-btn-normal">管理员</button>
+                </div>
+
+                <!-- 登录表单 -->
+                <div class="layui-form-item">
+                    <input type="text" name="username"
+                           placeholder="用户名"
+                           class="layui-input"
+                           autocomplete="username"
+                           th:value="${param.username != null} ? ${param.username} : 'admin'">
+                </div>
+
+                <div class="layui-form-item">
+                    <input type="password" name="password"
+                           placeholder="密码"
+                           class="layui-input"
+                           autocomplete="current-password"
+                           th:value="${param.password != null} ? ${param.password} : '123456'">
+                </div>
+
+                <div class="layui-form-item" style="display: flex; gap: 10px;">
+                    <input type="text" name="captcha"
+                           placeholder="验证码"
+                           class="layui-input"
+                           style="flex:2">
+                    <img id="captcha-img"
+                         th:src="@{/captcha}"
+                         onclick="refreshCaptcha()"
+                         style="flex:1">
+                </div>
+
+                <button type="submit" class="layui-btn layui-btn-fluid layui-btn-normal">
+                    立即登录
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Thymeleaf管理的脚本资源 -->
+<script th:src="@{/webjars/jquery/3.7.1/jquery.min.js}"></script>
+<script th:src="@{/layui/layui.js}"></script>
+
+<script>
+    // 初始化配置
+    let userType = 'admin';
+    const API_BASE = '/api';
+
+    // 验证码刷新函数
+    function refreshCaptcha() {
+        $('#captcha-img').attr('src', '/captcha?t=' + Date.now());
+    }
+
+    // 用户类型切换逻辑
+    $('#login-type button').click(function() {
+        $(this).addClass('layui-btn-normal')
+            .siblings().removeClass('layui-btn-normal');
+        userType = $(this).text().trim() === '管理员' ? 'admin' : 'user';
+    });
+
+    // 表单提交处理（修改后）
+    $('#loginForm').submit(function(e) {
+        e.preventDefault();
+
+        // 获取表单数据
+        const formData = {
+            username: $('[name="username"]').val(),
+            password: $('[name="password"]').val(),
+            captcha: $('[name="captcha"]').val()
+        };
+
+        // 管理员账号验证
+        if (userType === 'admin' && formData.username !== 'admin') {
+            layui.layer.msg('管理员账号必须为 admin');
+            return false;
+        }
+
+        // 禁用提交按钮
+        const $btn = $(this).find('button[type="submit"]')
+            .prop('disabled', true)
+            .text('登录中...');
+
+        // 发送表单格式请求
+        $.ajax({
+            url: '/user/login',
+            method: 'POST',
+            contentType: 'application/x-www-form-urlencoded',
+            data: $.param(formData)
+        }).done(res => {
+            if (res.code === 0) {
+                window.location.href = userType === 'admin'
+                    ? '/admin_index'       // 对应@GetMapping("/index")
+                    : '/user_index';
+            } else {
+                layui.layer.msg(res.message || '登录失败');
+                refreshCaptcha();
+            }
+        }).fail(xhr => {
+            layui.layer.msg(`请求失败: ${xhr.statusText}`);
+        }).always(() => {
+            $btn.prop('disabled', false).text('立即登录');
+        });
+
+        return false;
+    });
+</script>
+</body>
+</html>

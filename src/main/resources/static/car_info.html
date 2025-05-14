@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车辆信息查看系统</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .car-img {
+            width: 60px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #eee;
+        }
+        .detail-view {
+            padding: 20px;
+            line-height: 28px;
+        }
+        .detail-view img {
+            width: 100%;
+            max-width: 400px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .detail-view div {
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .price-tag {
+            color: #FF5722;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 style="text-align: center; margin: 20px 0; color: #1E9FFF;">车辆信息查看系统</h1>
+
+    <!-- 搜索表单 -->
+    <form class="layui-form" id="searchForm">
+        <div class="layui-form-item">
+            <div class="layui-inline">
+                <input type="text" name="name" placeholder="车辆名称" class="layui-input">
+            </div>
+            <div class="layui-inline">
+                <select name="category" lay-search>
+                    <option value="">所有分类</option>
+                </select>
+            </div>
+            <div class="layui-inline">
+                <select name="kind" lay-search>
+                    <option value="">所有类型</option>
+                </select>
+            </div>
+            <div class="layui-inline">
+                <button class="layui-btn" lay-submit lay-filter="search">
+                    <i class="layui-icon layui-icon-search"></i> 搜索
+                </button>
+                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 详细信息模板 -->
+    <script type="text/html" id="detailTemplate">
+        <div class="detail-view">
+            <div><strong>车辆ID：</strong>{{ d.id }}</div>
+            <div><strong>车辆名称：</strong>{{ d.name }}</div>
+            <div><strong>日租金：</strong><span class="price-tag">¥{{ d.dailyPrice }}/天</span></div>
+            <div><strong>分类：</strong>{{ d.category }}</div>
+            <div><strong>类型：</strong>{{ d.kind }}</div>
+            <div><strong>创建时间：</strong>{{ layui.util.toDateString(d.createTime, "yyyy-MM-dd HH:mm:ss") }}</div>
+            <div><strong>更新时间：</strong>{{ layui.util.toDateString(d.updateTime, "yyyy-MM-dd HH:mm:ss") }}</div>
+            <img src="{{ d.image }}" onerror="this.src='/images/default.jpg'">
+
+        </div>
+    </script>
+
+    <!-- 操作列模板 -->
+    <script type="text/html" id="barDemo">
+        <button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="detail">
+            <i class="layui-icon layui-icon-form"></i> 查看
+        </button>
+    </script>
+
+    <!-- 数据表格 -->
+    <table id="carTable" lay-filter="carTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'laytpl'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        var laytpl = layui.laytpl;
+        var $ = layui.$;
+
+        // 初始化下拉框数据
+        function initSelects() {
+            $.when(
+                $.get('/car/categories'),
+                $.get('/car/kinds')
+            ).done(function(categoriesRes, kindsRes){
+                var categorySelect = $('select[name="category"]');
+                var kindSelect = $('select[name="kind"]');
+
+                (categoriesRes[0].data || []).forEach(function(item){
+                    categorySelect.append(new Option(item.category, item.category));
+                });
+
+                (kindsRes[0].data || []).forEach(function(item){
+                    kindSelect.append(new Option(item.kind, item.kind));
+                });
+
+                form.render('select');
+            }).fail(function(){
+                layer.msg('加载分类数据失败', {icon: 2});
+            });
+        }
+
+        // 初始化表格（新增日租金字段）
+        table.render({
+            elem: '#carTable',
+            url: '/car/paged',
+            method: 'GET',
+            height: 'full-180',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            request: {
+                pageName: 'pageNo',
+                limitName: 'pageSize'
+            },
+            parseData: function(res){
+                if(res.data && res.data.list){
+                    res.data.list = res.data.list.map(function(item){
+                        return {
+                            ...item,
+                            image: item.image
+                                ? item.image.startsWith('/')
+                                    ? item.image
+                                    : '/images/' + item.image
+                                : '/images/default.jpg',
+                            // 确保日租金字段存在
+                            money: item.money || 0
+                        };
+                    });
+                }
+                return {
+                    code: res.code || 0,
+                    msg: res.msg || "",
+                    count: res.data?.total || 0,
+                    data: res.data?.list || []
+                };
+            },
+            cols: [[
+                {field: 'id', title: 'ID', width: 80, sort: true},
+                {field: 'name', title: '车辆名称', width: 150},
+                {
+                    field: 'money',
+                    title: '日租金',
+                    width: 120,
+                    templet: d => `<span class="price-tag">¥${d.money}/天</span>`
+                },
+                {field: 'category', title: '分类', width: 120},
+                {field: 'kind', title: '类型', width: 120},
+                {
+                    title: '图片',
+                    width: 100,
+                    templet: function(d){
+                        return `<img src="${d.image}"
+                               class="car-img"
+                               onerror="this.src='/images/default.jpg'"
+                               lay-event="imgPreview">`;
+                    }
+                },
+                {fixed: 'right', title: '操作', width: 100, toolbar: '#barDemo'}
+            ]],
+            done: function(){
+                $('img[onerror]').on('error', function(){
+                    this.src = '/images/default.jpg';
+                });
+            }
+        });
+
+        // 查看按钮事件
+        table.on('tool(carTable)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'detail'){
+                var html = '';
+                laytpl($('#detailTemplate').html()).render(data, function(h){
+                    html = h;
+                });
+
+                layer.open({
+                    title: '车辆详细信息 - ' + data.name,
+                    type: 1,
+                    area: ['600px', '80%'],
+                    content: html,
+                    scrollbar: false
+                });
+            }
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function(data){
+            table.reload('carTable', {
+                where: data.field,
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 初始化
+        initSelects();
+    });
+</script>
+</body>
+</html>

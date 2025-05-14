@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wut.zn.mapper.UserMapper">
+
+
+
+    <select id="getUser" resultType="com.wut.zn.entity.User">
+        SELECT * FROM user
+        WHERE username = #{username} AND password = #{password}
+    </select>
+
+
+
+    <select id="selectByPage" resultType="com.wut.zn.entity.User">
+        SELECT * FROM user
+        <where>
+            <if test="username != null and username != ''">
+                username LIKE CONCAT('%', #{username}, '%')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <select id="selectById" resultType="CarCategory">
+        SELECT
+            id,
+            category,
+            create_time AS createTime,
+            update_time AS updateTime
+        FROM car_category
+        WHERE id = #{id}
+    </select>
+
+
+    <delete id="batchDeleteByIds">
+        DELETE FROM user
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+    <update id="updateUser">
+        UPDATE user
+        <set>
+            <if test="password != null">password = #{password},</if>
+            <if test="sex != null">sex = #{sex},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <!-- <if test="address != null">address = #{address},</if> -->
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+</mapper>
+

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>租赁订单管理系统</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .layui-form {
+            margin-bottom: 10px;
+        }
+        #orderTable {
+            height: calc(100% - 100px);
+        }
+        .car-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            cursor: zoom-in;
+            transition: transform 0.3s ease;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .car-img:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .default-img {
+            width: 50px;
+            height: 50px;
+            background-color: #f2f2f2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .status-available {
+            background-color: #5FB878;
+            color: white;
+        }
+        .status-rented {
+            background-color: #FF5722;
+            color: white;
+        }
+        .detail-container {
+            padding: 15px;
+        }
+        .detail-row {
+            margin-bottom: 10px;
+            display: flex;
+        }
+        .detail-label {
+            width: 100px;
+            font-weight: bold;
+            color: #666;
+        }
+        .detail-value {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 style="text-align: center;color: #1e9fff;margin-bottom: 20px;">租赁订单管理系统</h1>
+
+    <!-- 查询表单 -->
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="orderNo" placeholder="订单号" class="layui-input">
+        </div>
+        <div class="layui-col-md3">
+            <input type="text" name="carName" placeholder="车辆名称" class="layui-input">
+        </div>
+        <div class="layui-col-md2">
+            <button class="layui-btn" lay-submit lay-filter="search">搜索</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+        </div>
+    </form>
+
+    <!-- 订单数据表 -->
+    <table class="layui-hide" id="orderTable" lay-filter="orderTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'util'], function () {
+        let table = layui.table;
+        let $ = layui.$;
+        let layer = layui.layer;
+        let form = layui.form;
+        let util = layui.util;
+
+        // 时间格式化函数
+        function dateFormatter(time) {
+            return util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+        }
+
+        // 渲染订单表格
+        table.render({
+            elem: "#orderTable",
+            url: "/order/paged",
+            height: 'full-120',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            loading: true,
+            text: {
+                none: '暂无相关数据'
+            },
+            toolbar: '<div>' +
+                '<button class="layui-btn layui-btn-danger" lay-event="batchDel"><i class="layui-icon layui-icon-delete"></i>批量删除</button>' +
+                '</div>',
+            request: {
+                pageName: 'page',
+                limitName: 'limit'
+            },
+            response: {
+                statusName: 'code',
+                statusCode: 0,
+                countName: 'count',
+                dataName: 'data'
+            },
+            parseData: function (res) {
+                console.log("原始响应数据:", res);
+
+                // 统一处理图片路径 - 指向static/images目录
+                if(res.data && Array.isArray(res.data)) {
+                    res.data = res.data.map(item => ({
+                        ...item,
+                        image: item.image ? `/images/${item.image}` : '/static/images/default-car.png'
+                    }));
+                }
+
+                // 处理标准格式
+                return {
+                    "code": res.code || 0,
+                    "msg": res.msg || "",
+                    "count": res.count || (res.data ? res.data.length : 0),
+                    "data": res.data || []
+                };
+            },
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {title: "订单号", field: "id", width: 120, sort: true},
+                {title: "车辆名称", field: "name", width: 150},
+                {title: "车辆品牌", field: "category", width: 120},
+                {title: "车辆类型", field: "kind", width: 120, templet: function(d) {
+                        return d.kind === "油车" ? "燃油车" : (d.kind === "电车" ? "电动车" : d.kind);
+                    }},
+                {title: "用户名", field: "username", width: 120},
+                {title: "租赁天数", field: "days", width: 120},
+                {
+                    title: "车辆图片",
+                    templet: function(d) {
+                        if(!d.image) {
+                            return '<div class="default-img">暂无图片</div>';
+                        }
+                        return `<img src="${d.image}"
+                                   class="car-img"
+                                   alt="车辆图片"
+                                   onerror="this.src='/images/default.jpg';this.onerror=null">`;
+                    },
+                    width: 100
+                },
+                {
+                    title: "状态",
+                    field: "status",
+                    width: 100,
+                    templet: function(d) {
+                        const statusText = d.status === 1 ? '已出租' : '未出租';
+                        const statusClass = d.status === 1 ? 'status-rented' : 'status-available';
+                        return `<span class="status-badge ${statusClass}">${statusText}</span>`;
+                    }
+                },
+                {title: "创建时间", field: "createTime", templet: d => dateFormatter(d.createTime), width: 180},
+                {title: "更新时间", field: "updateTime", templet: d => dateFormatter(d.updateTime), width: 180},
+                {
+                    title: "操作",
+                    width: 150,
+                    templet: function (d) {
+                        return `
+                            <div class="layui-btn-group">
+                                <button class="layui-btn layui-btn-xs" lay-event="detail">
+                                    <i class="layui-icon layui-icon-form"></i>查看
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">
+                                    <i class="layui-icon layui-icon-delete"></i>删除
+                                </button>
+                            </div>`;
+                    }
+                }
+            ]],
+            done: function(res, curr, count) {
+                console.log('表格渲染完成:', res, curr, count);
+                if(!res.data || res.data.length === 0) {
+                    layer.msg('没有找到订单数据', {icon: 3});
+                }
+            },
+            error: function(res, msg) {
+                console.error('表格加载错误:', res, msg);
+                layer.msg('数据加载失败: ' + (res.msg || msg), {icon: 2});
+            }
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function (data) {
+            table.reload('orderTable', {
+                where: {
+                    orderNo: data.field.orderNo,
+                    carName: data.field.carName
+                },
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 工具栏事件处理
+        table.on('toolbar(orderTable)', function (obj) {
+            switch (obj.event) {
+                case 'batchDel':
+                    let checkData = table.checkStatus(obj.config.id);
+                    if (checkData.data.length === 0) {
+                        return layer.msg('请选择要删除的订单', {icon: 3});
+                    }
+
+                    const confirmIndex = layer.confirm('确定删除选中的'+checkData.data.length+'条订单吗？', {
+                        icon: 3,
+                        title: '批量删除确认'
+                    }, function() {
+                        layer.close(confirmIndex);
+                        const loading = layer.msg('正在删除...', {
+                            icon: 16,
+                            time: 0
+                        });
+
+                        $.ajax({
+                            url: "/order/batch",
+                            type: "DELETE",
+                            contentType: "application/json",
+                            data: JSON.stringify(checkData.data.map(item => item.id)),
+                            complete: () => layer.close(loading),
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg(`成功删除${res.data}条数据`, {icon: 1});
+                                    table.reload('orderTable');
+                                } else {
+                                    layer.msg(res.msg || '删除失败', {icon: 2});
+                                }
+                            },
+                            error: () => layer.msg('请求异常', {icon: 2})
+                        });
+                    });
+                    break;
+            }
+        });
+
+        // 行工具事件处理
+        table.on('tool(orderTable)', function (obj) {
+            let data = obj.data;
+            switch (obj.event) {
+                case 'detail':
+                    // 查看详情
+                    layer.open({
+                        title: '订单详情 - ' + data.id,
+                        type: 1,
+                        area: ['600px', '500px'],
+                        content: `
+                            <div class="detail-container">
+                                <div class="detail-row">
+                                    <div class="detail-label">订单号:</div>
+                                    <div class="detail-value">${data.id}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">车辆名称:</div>
+                                    <div class="detail-value">${data.name}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">车辆品牌:</div>
+                                    <div class="detail-value">${data.category}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">车辆类型:</div>
+                                    <div class="detail-value">${data.kind === "油车" ? "燃油车" : (data.kind === "电车" ? "电动车" : data.kind)}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">出租人:</div>
+                                    <div class="detail-value">${data.username}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">车辆图片:</div>
+                                    <div class="detail-value">
+                                        <img src="${data.image || '/static/images/default-car.png'}"
+                                             style="max-width: 200px; max-height: 150px;"
+                                             onerror="this.src='/static/images/default.jpg';this.onerror=null">
+                                    </div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">状态:</div>
+                                    <div class="detail-value">
+                                        <span class="status-badge ${data.status === 1 ? 'status-rented' : 'status-available'}">
+                                            ${data.status === 1 ? '已出租' : '未出租'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">创建时间:</div>
+                                    <div class="detail-value">${dateFormatter(data.createTime)}</div>
+                                </div>
+                                <div class="detail-row">
+                                    <div class="detail-label">更新时间:</div>
+                                    <div class="detail-value">${dateFormatter(data.updateTime)}</div>
+                                </div>
+                            </div>
+                        `,
+                        btn: ['关闭'],
+                        btnAlign: 'c'
+                    });
+                    break;
+                case 'del':
+                    const deleteIndex = layer.confirm('确定删除订单 '+data.id+'？', {
+                        icon: 3,
+                        title: '删除确认'
+                    }, function() {
+                        layer.close(deleteIndex);
+                        const loading = layer.msg('删除中...', {icon: 16, time:0});
+
+                        $.ajax({
+                            url: "/order/" + data.id,
+                            type: "DELETE",
+                            complete: () => layer.close(loading),
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg('删除成功', {icon: 1});
+                                    table.reload('orderTable');
+                                } else {
+                                    layer.msg(res.msg || '删除失败', {icon: 2});
+                                }
+                            }
+                        });
+                    });
+                    break;
+            }
+        });
+    });
+</script>
+</body>
+</html>

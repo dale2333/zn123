@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>个人中心</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .password-form {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-btn-group" style="margin-bottom: 20px;">
+    <button type="button" class="layui-btn layui-btn-primary" id="btn-basic">基础信息</button>
+    <button type="button" class="layui-btn layui-btn-primary" id="btn-password">密码修改</button>
+</div>
+<div id="basic-info-section">
+    <form class="layui-form" lay-filter="profileForm" id="profileForm">
+        <div class="layui-form-item">
+            <label class="layui-form-label">用户名</label>
+            <div class="layui-input-block">
+                <input type="text" name="username" class="layui-input" readonly>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">性别</label>
+            <div class="layui-input-block">
+                <select name="sex">
+                    <option value="male">男</option>
+                    <option value="female">女</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">手机号</label>
+            <div class="layui-input-block">
+                <input type="text" name="phone" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="updateProfile">保存修改</button>
+            </div>
+        </div>
+    </form>
+</div>
+<div id="password-section" style="display:none;">
+    <form class="layui-form" lay-filter="passwordForm" style="max-width:400px;">
+        <div class="layui-form-item">
+            <label class="layui-form-label">新密码</label>
+            <div class="layui-input-block">
+                <input type="password" name="newPassword" required lay-verify="required|pass" placeholder="请输入新密码" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">确认密码</label>
+            <div class="layui-input-block">
+                <input type="password" name="confirmPassword" required lay-verify="required|confirmPass" placeholder="请再次输入新密码" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="passwordSubmit">提交修改</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['form', 'layer'], function(){
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 加载用户信息
+        function loadProfile() {
+            $.ajax({
+                url: '/user/me',
+                type: 'GET',
+                success: function(res) {
+                    if(res.code === 0 && res.data) {
+                        form.val('profileForm', {
+                            "username": res.data.username,
+                            "sex": res.data.sex || '',
+                            "phone": res.data.phone || ''
+                        });
+                        form.render();
+                    } else {
+                        layer.msg(res.message || '加载个人信息失败');
+                    }
+                },
+                error: function() {
+                    layer.msg('网络错误，请稍后重试');
+                }
+            });
+        }
+
+        // 页面加载时获取数据
+        loadProfile();
+
+        // 切换显示区域
+        $('#btn-basic').on('click', function(){
+            $('#basic-info-section').show();
+            $('#password-section').hide();
+            $(this).addClass('layui-btn-normal');
+            $('#btn-password').removeClass('layui-btn-normal');
+        });
+        $('#btn-password').on('click', function(){
+            $('#basic-info-section').hide();
+            $('#password-section').show();
+            $(this).addClass('layui-btn-normal');
+            $('#btn-basic').removeClass('layui-btn-normal');
+        });
+
+        // 提交个人信息修改
+        form.on('submit(updateProfile)', function(data){
+            $.ajax({
+                url: '/user/my-profile',
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(data.field),
+                success: function(res) {
+                    if(res.code === 0) {
+                        layer.msg('修改成功', {icon: 1});
+                        loadProfile();
+                    } else {
+                        layer.msg(res.message || '修改失败', {icon: 2});
+                    }
+                },
+                error: function() {
+                    layer.msg('网络错误，请稍后重试', {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        // 密码校验
+        form.verify({
+            pass: [/^[\S]{6,20}$/, '密码必须6到20位，且不能出现空格'],
+            confirmPass: function(value){
+                var pwd = $("[name='newPassword']").val();
+                if(value !== pwd){
+                    return '两次输入的密码不一致';
+                }
+            }
+        });
+        // 密码修改提交
+        form.on('submit(passwordSubmit)', function(data){
+            $.ajax({
+                url: '/user/change-password',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ newPassword: data.field.newPassword }),
+                success: function(res) {
+                    if(res.code === 0) {
+                        layer.msg('密码修改成功', {icon: 1});
+                        form.val('passwordForm', { newPassword: '', confirmPassword: '' });
+                    } else {
+                        layer.msg(res.message || '密码修改失败');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    layer.msg('请求失败: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : error));
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>用户管理</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        /* 新增样式：让页面占满高度 */
+        html, body { height: 100%; margin: 0; padding: 0; }
+        .layui-form { margin-bottom: 10px; }
+        #userTable { height: calc(100% - 100px); } /* 自适应高度 */
+    </style>
+</head>
+<body>
+<div class="layui-fluid"> <!-- 使用流体容器 -->
+    <h1 style="text-align: center;color: #1e9fff;margin-bottom: 20px;">用户管理系统</h1>
+
+    <!-- 查询表单 -->
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="username" placeholder="用户名" class="layui-input">
+        </div>
+        <div class="layui-col-md2">
+            <button class="layui-btn" lay-submit lay-filter="search">搜索</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+        </div>
+    </form>
+
+    <!-- 用户数据表（已添加高度配置） -->
+    <table class="layui-hide" id="userTable" lay-filter="userTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'util'], function () {
+        let table = layui.table;
+        let $ = layui.$;
+        let layer = layui.layer;
+        let form = layui.form;
+        let util = layui.util;
+
+        // 性别格式化
+        function sexFormatter(sex) {
+            return sex === 'male' ? '男' : sex === 'female' ? '女' : '未知';
+        }
+
+        // 时间格式化
+        function dateFormatter(time) {
+            return util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+        }
+
+        // 渲染用户表格（关键修改点）
+        table.render({
+            elem: "#userTable",
+            url: "/user/paged",
+            height: 'full-120', // 自适应高度（总高度 - 120px）
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            request: {
+                pageName: 'pageNo',
+                limitName: 'pageSize'
+            },
+            parseData: function (res) {
+                return {
+                    "code": res.code || 0,
+                    "msg": res.msg || "",
+                    "count": res.count || 0,  // ✅ 修正字段名
+                    "data": res.data || []
+                };
+            },
+            toolbar: `
+                <div>
+                    <button type="button" lay-event="batchDel" class="layui-btn layui-btn-sm layui-bg-red">批量删除</button>
+                    <button type="button" lay-event="addUser" class="layui-btn layui-btn-sm layui-bg-blue">新增用户</button>
+                </div>`,
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {title: "用户ID", field: "id", width: 100, sort: true},
+                {title: "用户名", field: "username", width: 150},
+                {title: "性别", field: "sex", templet: d => sexFormatter(d.sex), width: 100},
+                {title: "联系电话", field: "phone", width: 150},
+                {title: "创建时间", field: "createTime", templet: d => dateFormatter(d.createTime), width: 180},
+                {title: "最后更新", field: "updateTime", templet: d => dateFormatter(d.updateTime), width: 180},
+                {
+                    title: "操作",
+                    width: 150,
+                    templet: function (d) {
+                        return `
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</button>
+                            <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</button>
+                        `;
+                    }
+                }
+            ]]
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function (data) {
+            table.reload('userTable', {
+                where: data.field,
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 工具栏事件（新增用户和批量删除）
+        table.on('toolbar(userTable)', function (obj) {
+            switch (obj.event) {
+                case 'addUser':
+                    layer.open({
+                        title: '新增用户',
+                        type: 2,
+                        content: '/static/user-add.html', // 用户表单页面
+                        area: ['500px', '450px'],
+                        end: function () {
+                            table.reload('userTable');
+                        }
+                    });
+                    break;
+                case 'batchDel':
+                    let checkData = table.checkStatus(obj.config.id);
+                    if (checkData.data.length === 0) {
+                        layer.msg('请选择要删除的用户');
+                        return;
+                    }
+                    layer.confirm('确认删除选中的 '+checkData.data.length+' 个用户？', function () {
+                        let ids = checkData.data.map(item => item.id);
+                        $.ajax({
+                            url: "/user/batch",
+                            type: "DELETE",
+                            contentType: "application/json",
+                            data: JSON.stringify(ids),
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg("删除成功");
+                                    table.reload('userTable');
+                                }
+                            }
+                        });
+                    });
+                    break;
+            }
+        });
+
+        // 行工具事件（删除和编辑）
+        table.on('tool(userTable)', function (obj) {
+            let data = obj.data;
+            switch (obj.event) {
+                case 'del':
+                    layer.confirm('确认删除用户 '+data.username+'？', function () {
+                        $.ajax({
+                            url: "/user/" + data.id,
+                            type: "DELETE",
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg("删除成功");
+                                    table.reload('userTable');
+                                }
+                            }
+                        });
+                    });
+                    break;
+                case 'edit':
+                    layer.open({
+                        title: '编辑用户',
+                        type: 2,
+                        content: '/static/user-edit.html?id=' + data.id,
+                        area: ['500px', '450px'],
+                        success: function (layero, index) {
+                            let body = layer.getChildFrame('body', index);
+                            // 回显数据
+                            body.find('[name=username]').val(data.username);
+                            body.find('[name=sex]').val(data.sex);
+                            body.find('[name=phone]').val(data.phone);
+                        },
+                        end: function () {
+                            table.reload('userTable');
+                        }
+                    });
+                    break;
+            }
+        });
+    });
+</script>
+</body>
+</html>

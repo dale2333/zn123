@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>添加品牌</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <form class="layui-form">
+        <div class="layui-form-item">
+            <label class="layui-form-label">品牌名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="category"
+                       lay-verify="required"
+                       placeholder="请输入品牌名称"
+                       class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="formSubmit">提交</button>
+                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['form', 'layer'], function(){
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        form.on('submit(formSubmit)', function(data){
+            $.ajax({
+                url: '/category/add',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data.field),
+                success: function(res) {
+                    if (res.code === 0) {
+                        layer.msg('添加成功', function(){
+                            parent.layer.closeAll();
+                            parent.layui.table.reload('categoryTable');
+                        });
+                    }
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

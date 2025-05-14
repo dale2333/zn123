@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>编辑用户</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .layui-form-item .layui-form-label { width: 120px; }
+        .layui-input-block { margin-left: 150px; }
+    </style>
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <form class="layui-form">
+        <!-- 隐藏字段（用户ID） -->
+        <input type="hidden" name="id">
+
+        <!-- 只读信息 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">用户名</label>
+            <div class="layui-input-block">
+                <input type="text" name="username" class="layui-input" readonly>
+            </div>
+        </div>
+
+        <!-- 可编辑字段 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">新密码</label>
+            <div class="layui-input-block">
+                <input type="password" name="password"
+                       lay-verify="pass"
+                       placeholder=""
+                       class="layui-input">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">性别</label>
+            <div class="layui-input-block">
+                <input type="radio" name="sex" value="male" title="男">
+                <input type="radio" name="sex" value="female" title="女">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">联系电话</label>
+            <div class="layui-input-block">
+                <input type="tel" name="phone"
+                       lay-verify="phone"
+                       placeholder="请输入手机号"
+                       class="layui-input">
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="submitEdit">保存修改</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['form', 'layer'], function() {
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 从URL获取用户ID
+        var userId = new URLSearchParams(window.location.search).get('id');
+
+        // 加载用户数据
+        if (userId) {
+            $.ajax({
+                url: '/user/' + userId,
+                success: function(res) {
+                    if (res.code === 0) {
+                        initFormData(res.data);
+                    } else {
+                        layer.msg(res.message || "加载用户失败");
+                    }
+                },
+                error: function() {
+                    layer.msg("请求失败，请检查网络");
+                }
+            });
+        }
+
+        // 初始化表单数据
+        function initFormData(userData) {
+            $('[name="id"]').val(userData.id);
+            $('[name="username"]').val(userData.username);
+            $('[name="sex"][value="' + (userData.sex || 'male') + '"]').prop('checked', true);
+            $('[name="phone"]').val(userData.phone);
+            form.render(); // 刷新表单状态
+        }
+
+        // 自定义验证规则
+        form.verify({
+            pass: [/^[\S]{6,}$/, '密码至少6位且不能包含空格'],
+            phone: [/^1[3-9]\d{9}$/, '请输入有效的手机号']
+        });
+
+        // 提交修改
+        form.on('submit(submitEdit)', function(data) {
+            var loadIndex = layer.load(2);
+
+            // 构造请求数据（只提交允许修改的字段）
+            var postData = {
+                id: data.field.id,
+                password: data.field.password || undefined, // 不传空密码
+                sex: data.field.sex,
+                phone: data.field.phone
+            };
+
+            $.ajax({
+                url: "/user/update",
+                type: "PUT",
+                contentType: "application/json",
+                data: JSON.stringify(postData),
+                success: function(res) {
+                    layer.close(loadIndex);
+                    if (res.code === 0) {
+                        layer.msg("修改已保存", { icon: 1 });
+                        parent.table.reload('userTable');
+                        parent.layer.closeAll();
+                    } else {
+                        layer.msg(res.message || "保存失败", { icon: 2 });
+                    }
+                },
+                error: function(xhr) {
+                    layer.close(loadIndex);
+                    layer.msg("请求失败: " + xhr.status, { icon: 2 });
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

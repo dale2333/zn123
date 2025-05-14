@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>编辑车辆 - 小米su7utral</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        body {
+            background-color: #fff;
+            padding: 15px;
+        }
+        .edit-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .edit-header h2 {
+            font-size: 18px;
+            color: #333;
+            font-weight: normal;
+        }
+        .layui-form-label {
+            width: 100px;
+            text-align: left;
+            padding-left: 0;
+        }
+        .layui-input-block {
+            margin-left: 100px;
+        }
+        .preview-img {
+            width: 120px;
+            height: 80px;
+            object-fit: cover;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            margin-top: 5px;
+        }
+        .error-tip {
+            color: #FF5722;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .layui-btn {
+            background-color: #009688;
+        }
+        .network-error {
+            color: #FF5722;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="edit-container">
+    <div class="edit-header">
+        <h2>编辑车辆 - <span id="carTitle">小米su7utral</span></h2>
+    </div>
+
+    <form class="layui-form" id="carForm">
+        <input type="hidden" name="id">
+
+        <!-- 车辆名称 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">车辆名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" class="layui-input" placeholder="请输入车辆名称">
+            </div>
+        </div>
+
+        <!-- 车辆分类 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">车辆分类</label>
+            <div class="layui-input-block">
+                <select name="categoryId" lay-search>
+                    <option value="">请选择分类</option>
+                </select>
+                <div class="network-error" id="categoryError">服务连接失败，请检查网络</div>
+            </div>
+        </div>
+
+        <!-- 车辆类型 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">车辆类型</label>
+            <div class="layui-input-block">
+                <select name="kindId" lay-search>
+                    <option value="">请选择类型</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 日租金 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">日租金</label>
+            <div class="layui-input-block">
+                <input type="number" name="money" lay-verify="required|number"
+                       class="layui-input" placeholder="请输入日租金" min="0">
+            </div>
+        </div>
+
+        <!-- 车辆图片 -->
+        <div class="layui-form-item">
+            <label class="layui-form-label">车辆图片</label>
+            <div class="layui-input-block">
+                <button type="button" class="layui-btn" id="uploadBtn">
+                    <i class="layui-icon">&#xe67c;</i>更换图片
+                </button>
+                <input type="hidden" name="image">
+                <img src="" class="preview-img" id="carImage">
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="formSubmit">保存修改</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btnCancel">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['form', 'upload', 'layer', 'jquery'], function(){
+        var form = layui.form;
+        var upload = layui.upload;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 1. 初始化车辆ID
+        function initCarId() {
+            var urlParams = new URLSearchParams(location.search);
+            var carId = urlParams.get('id');
+
+            if (!carId || isNaN(carId)) {
+                layer.msg('无效的车辆ID', {icon: 2});
+                setTimeout(function() {
+                    parent.layer.closeAll();
+                }, 2000);
+                return null;
+            }
+
+            $('input[name="id"]').val(carId);
+            return carId;
+        }
+
+        // 2. 加载分类和类型数据
+        function loadSelectOptions() {
+            return $.when(
+                $.get('/car/categories').fail(function(){
+                    $('#categoryError').show();
+                }),
+                $.get('/car/kinds').fail(function(){
+                    $('#kindError').show();
+                })
+            ).then(function(categoriesRes, kindsRes){
+                // 填充车辆分类
+                if(categoriesRes && categoriesRes[0].code === 0) {
+                    var $categorySelect = $('select[name="categoryId"]');
+                    $categorySelect.empty().append('<option value="">请选择分类</option>');
+                    categoriesRes[0].data.forEach(function(category){
+                        $categorySelect.append(
+                            $('<option></option>')
+                                .val(category.id)
+                                .text(category.category)
+                        );
+                    });
+                    $('#categoryError').hide();
+                }
+
+                // 填充车辆类型
+                if(kindsRes && kindsRes[0].code === 0) {
+                    var $kindSelect = $('select[name="kindId"]');
+                    $kindSelect.empty().append('<option value="">请选择类型</option>');
+                    kindsRes[0].data.forEach(function(kind){
+                        $kindSelect.append(
+                            $('<option></option>')
+                                .val(kind.id)
+                                .text(kind.kind)
+                        );
+                    });
+                }
+
+                form.render('select');
+            });
+        }
+
+        // 3. 加载车辆详情
+        function loadCarDetails(carId) {
+            var loadIndex = layer.load(1, {shade: 0.3});
+
+            $.get('/car/' + carId, function(res){
+                layer.close(loadIndex);
+                if(res.code === 0) {
+                    var car = res.data;
+                    $('#carTitle').text(car.name || '未知车辆');
+
+                    // 设置表单值
+                    form.val('carForm', {
+                        "name": car.name,
+                        "categoryId": car.carCategoryId,
+                        "kindId": car.kindId,
+                        "money": car.money,
+                        "image": car.image
+                    });
+
+                    // 单独设置图片预览
+                    $('#carImage').attr('src', car.image || '/images/default.jpg');
+                } else {
+                    layer.msg(res.message || '加载失败', {icon: 2});
+                }
+            }).fail(function(){
+                layer.close(loadIndex);
+                layer.msg('请求失败', {icon: 2});
+            });
+        }
+
+        // 4. 图片上传
+        upload.render({
+            elem: '#uploadBtn',
+            url: '/upload',
+            accept: 'images',
+            size: 2048, // 2MB
+            exts: 'jpg|png|jpeg|webp',
+            before: function(){
+                layer.load(1, {shade: [0.3, '#000']});
+            },
+            done: function(res){
+                layer.closeAll('loading');
+                if (res.code === 0) {
+                    var imageUrl = res.data.url || ('/images/' + res.data.filename);
+                    $('#carImage').attr('src', imageUrl + '?t=' + new Date().getTime());
+                    $('input[name="image"]').val(imageUrl);
+                    layer.msg('图片更新成功', {icon: 1});
+                } else {
+                    layer.msg(res.msg || '上传失败', {icon: 2});
+                }
+            },
+            error: function(){
+                layer.closeAll('loading');
+                layer.msg('上传服务异常', {icon: 2});
+            }
+        });
+
+        // 5. 表单提交
+        form.on('submit(formSubmit)', function(data){
+            var carId = $('input[name="id"]').val();
+            if(!carId) {
+                return layer.msg('无效的车辆ID', {icon: 2});
+            }
+
+            var loadIndex = layer.load(1, {shade: 0.3});
+
+            var postData = {
+                id: carId,
+                name: data.field.name,
+                carCategoryId: data.field.categoryId,
+                kindId: data.field.kindId,
+                money: Number(data.field.money),
+                image: data.field.image
+            };
+
+            $.ajax({
+                url: '/car/' + carId,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(postData),
+                success: function(res){
+                    layer.close(loadIndex);
+                    if(res.code === 0) {
+                        layer.msg('修改成功', {icon: 1}, function(){
+                            parent.layer.closeAll();
+                            parent.layui.table.reload('carTable');
+                        });
+                    } else {
+                        layer.msg(res.message || '操作失败', {icon: 2});
+                    }
+                },
+                error: function(xhr){
+                    layer.close(loadIndex);
+                    layer.msg('请求失败: ' + xhr.status, {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        // 6. 取消按钮
+        $('#btnCancel').click(function() {
+            parent.layer.closeAll();
+        });
+
+        // 7. 图片加载失败处理
+        $('#carImage').on('error', function(){
+            $(this).attr('src', '/images/default.jpg');
+        });
+
+        // 初始化页面
+        var carId = initCarId();
+        if(carId) {
+            loadSelectOptions().then(function(){
+                loadCarDetails(carId);
+            });
+        }
+    });
+</script>
+</body>
+</html>

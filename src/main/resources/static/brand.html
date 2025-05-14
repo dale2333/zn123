@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车辆品牌分类管理</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        .layui-form { margin-bottom: 10px; }
+        #categoryTable { height: calc(100% - 100px); }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 style="text-align: center;color: #1e9fff;margin-bottom: 20px;">车辆品牌分类管理</h1>
+
+    <!-- 查询表单 -->
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="category" placeholder="分类名称" class="layui-input">
+        </div>
+        <div class="layui-col-md2">
+            <button class="layui-btn" lay-submit lay-filter="search">搜索</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+        </div>
+    </form>
+
+    <!-- 分类数据表 -->
+    <table class="layui-hide" id="categoryTable" lay-filter="categoryTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'util'], function () {
+        let table = layui.table;
+        let $ = layui.$;
+        let layer = layui.layer;
+        let form = layui.form;
+        let util = layui.util;
+
+        // 时间格式化
+        function dateFormatter(time) {
+            return util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+        }
+
+        // 渲染分类表格
+        table.render({
+            elem: "#categoryTable",
+            url: "/category/paged",
+            height: 'full-120',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            request: {
+                pageName: 'pageNo',
+                limitName: 'pageSize'
+            },
+            parseData: function (res) {
+                return {
+                    "code": res.code || 0,
+                    "msg": res.msg || "",
+                    "count": res.count,
+                    "data": res.data || []
+                };
+            },
+            toolbar: `
+                <div>
+                    <button lay-event="add" class="layui-btn layui-btn-sm layui-bg-blue">新增分类</button>
+                    <button lay-event="batchDel" class="layui-btn layui-btn-sm layui-bg-red">批量删除</button>
+                </div>`,
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {title: "ID", field: "id", width: 100, sort: true},
+                {title: "分类名称", field: "category", width: 300},  // ✅ 核心字段
+                {title: "创建时间", field: "createTime", templet: d => dateFormatter(d.createTime), width: 180},
+                {title: "更新时间", field: "updateTime", templet: d => dateFormatter(d.updateTime), width: 180},
+                {
+                    title: "操作",
+                    width: 150,
+                    templet: function (d) {
+                        return `
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</button>
+                            <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</button>
+                        `;
+                    }
+                }
+            ]]
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function (data) {
+            table.reload('categoryTable', {
+                where: data.field,
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 工具栏事件
+        table.on('toolbar(categoryTable)', function (obj) {
+            switch (obj.event) {
+                case 'add':
+                    layer.open({
+                        title: '新增分类',
+                        type: 2,
+                        content: '/static/brand-add.html',
+                        area: ['400px', '250px'],  // ✅ 简化高度
+                        end: function () {
+                            table.reload('categoryTable');
+                        }
+                    });
+                    break;
+                case 'batchDel':
+                    let checkData = table.checkStatus(obj.config.id);
+                    if (checkData.data.length === 0) {
+                        layer.msg('请选择要删除的分类');
+                        return;
+                    }
+                    layer.confirm('确认删除选中的 '+checkData.data.length+' 个分类？', function () {
+                        let ids = checkData.data.map(item => item.id);
+                        $.ajax({
+                            url: "/category/batch",
+                            type: "DELETE",
+                            contentType: "application/json",
+                            data: JSON.stringify(ids),
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg("删除成功");
+                                    table.reload('categoryTable');
+                                }
+                            }
+                        });
+                    });
+                    break;
+            }
+        });
+
+        // 行工具事件
+        table.on('tool(categoryTable)', function (obj) {
+            let data = obj.data;
+            switch (obj.event) {
+                case 'del':
+                    layer.confirm('确认删除分类 '+data.carCategory+'？', function () {
+                        $.ajax({
+                            url: "/category/" + data.id,
+                            type: "DELETE",
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg("删除成功");
+                                    table.reload('categoryTable');
+                                }
+                            }
+                        });
+                    });
+                    break;
+                case 'edit':
+                    layer.open({
+                        title: '编辑分类',
+                        type: 2,
+                        content: '/static/brand-edit.html?id=' + data.id,
+                        area: ['400px', '250px'],
+                        success: function (layero, index) {
+                            let body = layer.getChildFrame('body', index);
+                            body.find('[name=carCategory]').val(data.carCategory);
+                        },
+                        end: function () {
+                            table.reload('categoryTable');
+                        }
+                    });
+                    break;
+            }
+        });
+    });
+</script>
+</body>
+</html>

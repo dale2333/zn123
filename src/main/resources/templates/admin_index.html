@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>车辆租赁系统</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link th:href="@{/layui/css/layui.css}" rel="stylesheet">
+    <style>
+        /* 添加在 <head> 中 */
+        .layui-body {
+            height: calc(100vh - 60px); /* 减去顶部导航栏高度 */
+            overflow: hidden; /* 隐藏滚动条 */
+        }
+
+        #mainContent {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        <div class="layui-logo layui-hide-xs layui-bg-black">车辆租赁系统</div>
+        <ul class="layui-nav layui-layout-left">
+            <li class="layui-nav-item layui-show-xs-inline-block layui-hide-sm" lay-header-event="menuLeft">
+                <i class="layui-icon layui-icon-spread-left"></i>
+            </li>
+        </ul>
+        <ul class="layui-nav layui-layout-right">
+            <li class="layui-nav-item layui-hide layui-show-sm-inline-block">
+                <a href="javascript:;">欢迎登录</a>
+                <dl class="layui-nav-child">
+                    <dd><a href="javascript:;" onclick="logout()">退出</a></dd>
+                </dl>
+            </li>
+        </ul>
+    </div>
+
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            <ul class="layui-nav layui-nav-tree" lay-filter="test">
+                <li class="layui-nav-item layui-nav-itemed">
+                    <a href="javascript:;">基本信息管理</a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" onclick="loadContent('user')">用户管理</a></dd>
+                        <dd><a href="javascript:;" onclick="loadContent('brand')">车辆品牌管理</a></dd>
+                        <dd><a href="javascript:;" onclick="loadContent('car')">车辆信息管理</a></dd> <!-- 已添加点击事件 -->
+                    </dl>
+                </li>
+                <li class="layui-nav-item">
+                    <a href="javascript:;">订单管理</a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" onclick="loadContent('order')">车辆租赁管理</a></dd>
+                        <dd><a href="javascript:;" onclick="loadContent('return')">车辆归还管理</a></dd>
+                    </dl>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="layui-body">
+        <iframe id="mainContent" src="" frameborder="0" height="100%" width="100%"></iframe>
+    </div>
+</div>
+
+<script th:src="@{webjars/jquery/3.7.1/jquery.min.js}" charset="utf-8"></script>
+<script th:src="@{/layui/layui.js}" charset="utf-8"></script>
+<script th:src="@{/lib/jq-module/jquery.particleground.min.js}"></script>
+
+<script>
+    function logout() {
+        $.ajax({
+            url: '/user/logout',
+            type: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = '/login';
+                } else {
+                    layer.msg('退出失败，请稍后再试', {icon: 2});
+                }
+            },
+            error: function() {
+                layer.msg('请求失败，请检查网络', {icon: 2});
+            }
+        });
+    }
+
+    function loadContent(page) {
+        var url = "";
+        switch (page) {
+            case 'user':
+                url = "/static/user.html";
+                break;
+            case 'brand':
+                url = "/static/brand.html";
+                break;
+            case 'car':
+                url = "/static/car.html";
+                break;
+            case 'order':
+                url = "/static/order.html";
+                break;
+            case 'return':
+                url = "/static/return.html";
+                break;
+        }
+        document.getElementById('mainContent').src = url;
+    }
+
+    // 页面加载后自动显示用户管理界面
+    $(document).ready(function() {
+        loadContent('use');
+    });
+
+    layui.use(['element', 'layer', 'util'], function(){
+        var element = layui.element;
+        var layer = layui.layer;
+        var util = layui.util;
+        var $ = layui.$;
+
+        util.event('lay-header-event', {
+            menuLeft: function(othis){
+                layer.msg('展开左侧菜单的操作', {icon: 0});
+            },
+            menuRight: function(){
+                layer.open({
+                    type: 1,
+                    title: '更多',
+                    content: '<div style="padding: 15px;">处理右侧面板的操作</div>',
+                    area: ['260px', '100%'],
+                    offset: 'rt',
+                    anim: 'slideLeft',
+                    shadeClose: true,
+                    scrollbar: false
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车辆归还管理系统</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .layui-form {
+            margin-bottom: 10px;
+        }
+        #returnTable {
+            height: calc(100% - 100px);
+        }
+        .car-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            cursor: zoom-in;
+            transition: transform 0.3s ease;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .car-img:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .status-returned {
+            background-color: #5FB878;
+            color: white;
+        }
+        .status-not-returned {
+            background-color: #FF5722;
+            color: white;
+        }
+        .system-title {
+            text-align: center;
+            color: #1e9fff;
+            margin-bottom: 20px;
+        }
+        /* 新增还车按钮样式 */
+        .btn-return {
+            background-color: #5FB878 !important;
+        }
+        .btn-disabled {
+            background-color: #cccccc !important;
+            cursor: not-allowed !important;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 class="system-title">车辆归还管理系统</h1>
+
+    <!-- 查询表单 -->
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="returnNo" placeholder="归还单号" class="layui-input">
+        </div>
+        <div class="layui-col-md3">
+            <input type="text" name="carName" placeholder="车辆名称" class="layui-input">
+        </div>
+        <div class="layui-col-md2">
+            <button class="layui-btn" lay-submit lay-filter="search">搜索</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+        </div>
+    </form>
+
+    <!-- 归还数据表 -->
+    <table class="layui-hide" id="returnTable" lay-filter="returnTable"></table>
+</div>
+
+<!-- 操作列模板 -->
+<script type="text/html" id="barDemo">
+    <div class="layui-btn-group">
+        {{#  if(d.carStatus == 0){ }}
+        <button class="layui-btn layui-btn-xs btn-return" lay-event="return" title="点击确认归还">
+            <i class="layui-icon layui-icon-ok"></i>还车
+        </button>
+        {{#  } else { }}
+        <button class="layui-btn layui-btn-xs btn-disabled" disabled>
+            <i class="layui-icon layui-icon-ok-circle"></i>已归还
+        </button>
+        {{#  } }}
+        <button class="layui-btn layui-btn-xs" lay-event="detail">
+            <i class="layui-icon layui-icon-form"></i>详情
+        </button>
+    </div>
+</script>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'util'], function () {
+        let table = layui.table;
+        let $ = layui.$;
+        let layer = layui.layer;
+        let form = layui.form;
+        let util = layui.util;
+
+        // 时间格式化函数
+        function dateFormatter(time) {
+            if(!time) return '';
+            try {
+                return util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+            } catch(e) {
+                console.error('时间格式化错误:', e);
+                return time;
+            }
+        }
+
+        // 渲染归还表格
+        table.render({
+            elem: "#returnTable",
+            url: "/return/paged",
+            height: 'full-120',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            loading: true,
+            text: {
+                none: '暂无相关数据'
+            },
+            request: {
+                pageName: 'page',
+                limitName: 'limit'
+            },
+            response: {
+                statusName: 'code',
+                statusCode: 200,
+                countName: 'count',
+                dataName: 'data'
+            },
+            parseData: function (res) {
+                if(res && !Array.isArray(res)) {
+                    if(res.data && Array.isArray(res.data)) {
+                        res = res.data;
+                    } else {
+                        res = [res];
+                    }
+                }
+
+                if(Array.isArray(res)) {
+                    res = res.map(item => ({
+                        ...item,
+                        carImage: item.carImage ? `/static${item.carImage}` : '/static/images/default-car.png'
+                    }));
+                }
+
+                return {
+                    "code": 200,
+                    "msg": "",
+                    "count": Array.isArray(res) ? res.length : 1,
+                    "data": Array.isArray(res) ? res : [res]
+                };
+            },
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {title: "归还单号", field: "returnId", width: 120, sort: true},
+                {title: "车辆名称", field: "carName", width: 150},
+                {title: "车辆品牌", field: "category", width: 120},
+                {title: "车辆类型", field: "kind", width: 120, templet: function(d) {
+                        return d.kind === "油车" ? "燃油车" : (d.kind === "电车" ? "电动车" : d.kind);
+                    }},
+                {title: "租车人", field: "username", width: 120},
+                {
+                    title: "车辆图片",
+                    templet: function(d) {
+                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='/static/images/default-car.png'">`;
+                    },
+                    width: 100
+                },
+                {
+                    title: "归还状态",
+                    field: "carStatus",
+                    width: 120,
+                    templet: function(d) {
+                        const statusText = d.carStatus === 1 ? '已归还' : '未归还';
+                        const statusClass = d.carStatus === 1 ? 'status-returned' : 'status-not-returned';
+                        return `<span class="status-badge ${statusClass}">${statusText}</span>`;
+                    }
+                },
+                {title: "创建时间", field: "returnCreateTime", templet: d => dateFormatter(d.returnCreateTime), width: 180},
+                {title: "更新时间", field: "returnUpdateTime", templet: d => dateFormatter(d.returnUpdateTime), width: 180},
+                {
+                    title: "操作",
+                    width: 150,
+                    templet: "#barDemo"
+                }
+            ]]
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function (data) {
+            table.reload('returnTable', {
+                where: {
+                    returnNo: data.field.returnNo,
+                    carName: data.field.carName
+                },
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 行工具事件处理
+        table.on('tool(returnTable)', function (obj) {
+            let data = obj.data;
+            switch (obj.event) {
+                case 'return':
+                    const confirmIndex = layer.confirm('确定要归还这辆'+data.carName+'吗？', {
+                        icon: 3,
+                        title: '还车确认'
+                    }, function() {
+                        layer.close(confirmIndex);
+                        const loading = layer.msg('正在处理还车...', {
+                            icon: 16,
+                            time: 0
+                        });
+
+                        $.ajax({
+                            url: "/return/" + data.returnId + "/return",
+                            type: "PUT",
+                            contentType: "application/json",
+                            complete: () => layer.close(loading),
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg('还车成功', {icon: 1});
+                                    // 局部更新当前行数据
+                                    obj.update({
+                                        carStatus: 1,
+                                        returnUpdateTime: new Date().toISOString()
+                                    });
+                                } else {
+                                    layer.msg(res.msg || '还车失败', {icon: 2});
+                                }
+                            },
+                            error: (xhr) => {
+                                const msg = xhr.responseJSON?.msg || '请求异常';
+                                layer.msg('还车失败：' + msg, {icon: 2});
+                            }
+                        });
+                    });
+                    break;
+
+                case 'detail':
+                    layer.open({
+                        title: '归还记录详情 - ' + data.returnId,
+                        type: 1,
+                        area: ['600px', '500px'],
+                        content: `
+                            <div style="padding: 20px;">
+                                <div class="layui-row layui-col-space10">
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">归还单号:</label>
+                                            <div class="layui-input-block">${data.returnId}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆名称:</label>
+                                            <div class="layui-input-block">${data.carName}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆品牌:</label>
+                                            <div class="layui-input-block">${data.category}</div>
+                                        </div>
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆类型:</label>
+                                            <div class="layui-input-block">${data.kind === "油车" ? "燃油车" : (data.kind === "电车" ? "电动车" : data.kind)}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">租车人:</label>
+                                            <div class="layui-input-block">${data.username}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">联系电话:</label>
+                                            <div class="layui-input-block">${data.phone || '未填写'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">车辆图片:</label>
+                                    <div class="layui-input-block">
+                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='/static/images/default-car.png'">
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">归还状态:</label>
+                                    <div class="layui-input-block">
+                                        <span class="status-badge ${data.carStatus === 1 ? 'status-returned' : 'status-not-returned'}">
+                                            ${data.carStatus === 1 ? '已归还' : '未归还'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">创建时间:</label>
+                                    <div class="layui-input-block">${dateFormatter(data.returnCreateTime)}</div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">更新时间:</label>
+                                    <div class="layui-input-block">${dateFormatter(data.returnUpdateTime)}</div>
+                                </div>
+                            </div>
+                        `,
+                        btn: ['关闭'],
+                        btnAlign: 'c'
+                    });
+                    break;
+            }
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>车辆租赁系统</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link th:href="@{/layui/css/layui.css}" rel="stylesheet">
+</head>
+<body>
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        <div class="layui-logo layui-hide-xs layui-bg-black">车辆租赁系统</div>
+        <ul class="layui-nav layui-layout-right">
+            <li class="layui-nav-item">
+                <a href="javascript:;"><i class="layui-icon layui-icon-user"></i>欢迎登录</a>
+                <dl class="layui-nav-child">
+                    <dd><a href="javascript:;" onclick="logout()">退出登录</a></dd>
+                </dl>
+            </li>
+        </ul>
+    </div>
+
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            <ul class="layui-nav layui-nav-tree">
+                <li class="layui-nav-item">
+                    <a href="javascript:;" onclick="loadContent('profile')"><i class="layui-icon layui-icon-user"></i> 个人中心</a>
+                </li>
+                <li class="layui-nav-item">
+                    <a href="javascript:;" onclick="loadContent('report')"><i class="layui-icon layui-icon-form"></i> 车辆信息 </a>
+                </li>
+                <li class="layui-nav-item">
+                    <a href="javascript:;" onclick="loadContent('payment')"><i class="layui-icon layui-icon-rmb"></i> 租赁订单</a>
+                </li>
+                <li class="layui-nav-item">
+                    <a href="javascript:;" onclick="loadContent('message')"><i class="layui-icon layui-icon-dialogue"></i> 还车</a>
+                </li>
+
+            </ul>
+        </div>
+    </div>
+
+    <div class="layui-body">
+        <iframe id="mainContent" src="" frameborder="0" height="100%" width="100%"></iframe>
+    </div>
+</div>
+
+<script th:src="@{webjars/jquery/3.7.1/jquery.min.js}"></script>
+<script th:src="@{/layui/layui.js}"></script>
+
+<script>
+    function logout() {
+        $.ajax({
+            url: '/user/logout',
+            type: 'POST',
+            success: function(response) {
+                window.location.href = '/login';
+            },
+            error: function() {
+                layer.msg('退出异常，请重试', {icon: 2});
+            }
+        });
+    }
+
+    function loadContent(type) {
+        const pageMap = {
+            'profile': '/static/userself.html',
+            'report': '/static/car_info.html',
+            'payment': '/static/rent.html',
+            'message': '/static/return_info.html'
+
+        };
+        document.getElementById('mainContent').src = pageMap[type] || 'profile.html';
+    }
+
+    // 初始化加载个人中心
+    $(document).ready(function() {
+        loadContent('profile');
+        layui.use('element', function() {
+            var element = layui.element;
+            element.render('nav');
+        });
+    });
+</script>
+
+</body>
+</html>

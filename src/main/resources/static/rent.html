@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车辆租赁系统</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .car-img {
+            width: 60px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+        .price-tag {
+            color: #FF5722;
+            font-weight: bold;
+        }
+        .layui-form-item .layui-inline {
+            margin-right: 0;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 style="text-align: center; margin: 20px 0; color: #1E9FFF;">车辆租赁系统</h1>
+
+    <!-- 搜索表单 -->
+    <form class="layui-form" id="searchForm">
+        <div class="layui-form-item">
+            <div class="layui-inline">
+                <input type="text" name="name" placeholder="车辆名称" class="layui-input">
+            </div>
+            <div class="layui-inline">
+                <select name="category" lay-search>
+                    <option value="">所有分类</option>
+                </select>
+            </div>
+            <div class="layui-inline">
+                <select name="kind" lay-search>
+                    <option value="">所有类型</option>
+                </select>
+            </div>
+            <div class="layui-inline">
+                <button class="layui-btn" lay-submit lay-filter="search">
+                    <i class="layui-icon layui-icon-search"></i> 搜索
+                </button>
+                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 操作列模板 -->
+    <script type="text/html" id="barDemo">
+        <button class="layui-btn layui-btn-xs" lay-event="rent">
+            <i class="layui-icon layui-icon-auz"></i> 租赁
+        </button>
+    </script>
+
+    <!-- 数据表格 -->
+    <table id="carTable" lay-filter="carTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 初始化下拉框数据
+        function initSelects() {
+            $.when(
+                $.get('/car/categories'),
+                $.get('/car/kinds')
+            ).done(function(categoriesRes, kindsRes){
+                var categorySelect = $('select[name="category"]');
+                var kindSelect = $('select[name="kind"]');
+
+                (categoriesRes[0].data || []).forEach(function(item){
+                    categorySelect.append(new Option(item.category, item.category));
+                });
+
+                (kindsRes[0].data || []).forEach(function(item){
+                    kindSelect.append(new Option(item.kind, item.kind));
+                });
+
+                form.render('select');
+            }).fail(function(){
+                layer.msg('加载分类数据失败', {icon: 2});
+            });
+        }
+
+        // 初始化表格
+        table.render({
+            elem: '#carTable',
+            url: '/car/paged',
+            method: 'GET',
+            height: 'full-180',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            request: {
+                pageName: 'pageNo',
+                limitName: 'pageSize'
+            },
+            parseData: function(res){
+                if(res.data && res.data.list){
+                    res.data.list = res.data.list.map(function(item){
+                        return {
+                            ...item,
+                            image: item.image
+                                ? item.image.startsWith('/')
+                                    ? item.image
+                                    : '/images/' + item.image
+                                : '/images/default.jpg',
+                            money: item.money || 0
+                        };
+                    });
+                }
+                return {
+                    code: res.code || 0,
+                    msg: res.msg || "",
+                    count: res.data?.total || 0,
+                    data: res.data?.list || []
+                };
+            },
+            cols: [[
+                {field: 'id', title: 'ID', width: 80, sort: true},
+                {field: 'name', title: '车辆名称', width: 150},
+                {
+                    field: 'money',
+                    title: '日租金',
+                    width: 120,
+                    templet: d => `<span class="price-tag">¥${d.money}/天</span>`
+                },
+                {field: 'category', title: '分类', width: 120},
+                {field: 'kind', title: '类型', width: 120},
+                {
+                    title: '图片',
+                    width: 100,
+                    templet: d => `<img src="${d.image}" class="car-img">`
+                },
+                {fixed: 'right', title: '操作', width: 100, toolbar: '#barDemo'}
+            ]],
+            done: function(){
+                $('img[onerror]').on('error', function(){
+                    this.src = '/images/default.jpg';
+                });
+            }
+        });
+
+        // 租赁按钮事件
+        table.on('tool(carTable)', function(obj){
+            if(obj.event === 'rent'){
+                var data = obj.data;
+
+                // 检查登录状态
+                $.ajax({
+                    url: '/user/me',
+                    type: 'GET',
+                    success: function(userRes) {
+                        if(userRes.code !== 0) {
+                            layer.msg('请先登录', {icon: 2});
+                            return;
+                        }
+
+                        // 弹出租赁表单
+                        layer.open({
+                            title: '租赁车辆 - ' + data.name,
+                            type: 1,
+                            area: ['400px', '250px'],
+                            content: `
+                                <form class="layui-form" style="padding:20px;">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">租赁天数</label>
+                                        <div class="layui-input-block">
+                                            <input type="number"
+                                                   name="days"
+                                                   required
+                                                   lay-verify="required|number"
+                                                   placeholder="请输入租赁天数"
+                                                   min="1"
+                                                   class="layui-input">
+                                        </div>
+                                    </div>
+                                </form>
+                            `,
+                            btn: ['确认租赁', '取消'],
+                            btnAlign: 'c',
+                            yes: function(index, layero){
+                                var days = layero.find('input[name="days"]').val();
+                                if(!days || days < 1) {
+                                    layer.msg('请输入有效天数', {icon: 2});
+                                    return;
+                                }
+
+                                // 提交租赁请求
+                                $.ajax({
+                                    url: '/order/create',
+                                    type: 'POST',
+                                    contentType: 'application/json',
+                                    data: JSON.stringify({
+                                        carId: data.id,
+                                        days: days
+                                    }),
+                                    success: function(res) {
+                                        if(res.code === 0) {
+                                            layer.msg('租赁成功', {icon: 1});
+                                            table.reload('carTable');
+                                            layer.close(index);
+                                        } else {
+                                            layer.msg(res.msg || '租赁失败', {icon: 2});
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function(data){
+            table.reload('carTable', {
+                where: data.field,
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 初始化
+        initSelects();
+    });
+</script>
+</body>
+</html>

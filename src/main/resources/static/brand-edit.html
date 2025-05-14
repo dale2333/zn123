@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>编辑品牌</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <form class="layui-form">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">品牌名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="category"
+                       lay-verify="required"
+                       class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="formSubmit">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['form', 'layer'], function(){
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 从URL获取ID
+        var urlParams = new URLSearchParams(window.location.search);
+        var id = urlParams.get('id');
+
+        // 初始化加载数据
+        $.get('/category/' + id, function(res) {
+            if (res.code === 0) {
+                form.val('form', res.data);
+            } else {
+                layer.msg('数据加载失败: ' + res.message);
+                parent.layer.closeAll();
+            }
+        }).fail(function(xhr) {
+            layer.msg('请求失败: ' + xhr.status);
+            parent.layer.closeAll();
+        });
+
+        // 提交修改
+        form.on('submit(formSubmit)', function(data){
+            $.ajax({
+                url: '/category/' + id, // ✅ 动态拼接ID
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    id: id,               // 明确传递ID
+                    category: data.field.category
+                }),
+                success: function(res) {
+                    if (res.code === 0) {
+                        layer.msg('修改成功', function(){
+                            parent.layer.closeAll();
+                            parent.layui.table.reload('categoryTable');
+                        });
+                    } else {
+                        layer.msg(res.message || "修改失败");
+                    }
+                },
+                error: function(xhr) {
+                    layer.msg("请求失败: " + xhr.status);
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

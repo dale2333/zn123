@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车辆归还管理系统</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .layui-form {
+            margin-bottom: 10px;
+        }
+        #returnTable {
+            height: calc(100% - 100px);
+        }
+        .car-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            cursor: zoom-in;
+            transition: transform 0.3s ease;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .car-img:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .status-returned {
+            background-color: #5FB878;
+            color: white;
+        }
+        .status-not-returned {
+            background-color: #FF5722;
+            color: white;
+        }
+        .system-title {
+            text-align: center;
+            color: #1e9fff;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <h1 class="system-title">车辆归还管理系统</h1>
+
+    <!-- 查询表单 -->
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="returnNo" placeholder="归还单号" class="layui-input">
+        </div>
+        <div class="layui-col-md3">
+            <input type="text" name="carName" placeholder="车辆名称" class="layui-input">
+        </div>
+        <div class="layui-col-md2">
+            <button class="layui-btn" lay-submit lay-filter="search">搜索</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+        </div>
+    </form>
+
+    <!-- 归还数据表 -->
+    <table class="layui-hide" id="returnTable" lay-filter="returnTable"></table>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+    layui.use(['table', 'form', 'layer', 'util'], function () {
+        let table = layui.table;
+        let $ = layui.$;
+        let layer = layui.layer;
+        let form = layui.form;
+        let util = layui.util;
+
+        // 时间格式化函数
+        function dateFormatter(time) {
+            if(!time) return '';
+            try {
+                return util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+            } catch(e) {
+                console.error('时间格式化错误:', e);
+                return time;
+            }
+        }
+
+        // 渲染归还表格
+        table.render({
+            elem: "#returnTable",
+            url: "/return/paged",
+            height: 'full-120',
+            page: true,
+            limits: [5, 10, 15, 20],
+            limit: 10,
+            loading: true,
+            text: {
+                none: '暂无相关数据'
+            },
+            toolbar: '<div>' +
+                '<button class="layui-btn layui-btn-danger" lay-event="batchDel"><i class="layui-icon layui-icon-delete"></i>批量删除</button>' +
+                '</div>',
+            request: {
+                pageName: 'page',
+                limitName: 'limit'
+            },
+            response: {
+                statusName: 'code',
+                statusCode: 200, // 修改为200以匹配常见成功状态码
+                countName: 'count',
+                dataName: 'data'
+            },
+            parseData: function (res) {
+                console.log("原始响应数据:", res);
+
+                // 处理数据格式
+                if(res && !Array.isArray(res)) {
+                    // 如果返回的是对象而非数组
+                    if(res.data && Array.isArray(res.data)) {
+                        res = res.data;
+                    } else {
+                        // 如果返回的是单个对象
+                        res = [res];
+                    }
+                }
+
+                // 统一处理图片路径
+                if(Array.isArray(res)) {
+                    res = res.map(item => ({
+                        ...item,
+                        carImage: item.carImage ? `/static${item.carImage}` : '/static/images/default-car.png'
+                    }));
+                }
+
+                return {
+                    "code": 200,
+                    "msg": "",
+                    "count": Array.isArray(res) ? res.length : 1,
+                    "data": Array.isArray(res) ? res : [res]
+                };
+            },
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {title: "归还单号", field: "returnId", width: 120, sort: true},
+                {title: "车辆名称", field: "carName", width: 150},
+                {title: "车辆品牌", field: "category", width: 120},
+                {title: "车辆类型", field: "kind", width: 120, templet: function(d) {
+                        return d.kind === "油车" ? "燃油车" : (d.kind === "电车" ? "电动车" : d.kind);
+                    }},
+                {title: "租车人", field: "username", width: 120},
+                {
+                    title: "车辆图片",
+                    templet: function(d) {
+                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='/static/images/default-car.png'">`;
+                    },
+                    width: 100
+                },
+                {
+                    title: "归还状态",
+                    field: "carStatus",
+                    width: 120,
+                    templet: function(d) {
+                        const statusText = d.carStatus === 1 ? '已归还' : '未归还';
+                        const statusClass = d.carStatus === 1 ? 'status-returned' : 'status-not-returned';
+                        return `<span class="status-badge ${statusClass}">${statusText}</span>`;
+                    }
+                },
+                {title: "创建时间", field: "returnCreateTime", templet: d => dateFormatter(d.returnCreateTime), width: 180},
+                {title: "更新时间", field: "returnUpdateTime", templet: d => dateFormatter(d.returnUpdateTime), width: 180},
+                {
+                    title: "操作",
+                    width: 150,
+                    templet: function (d) {
+                        return `
+                            <div class="layui-btn-group">
+                                <button class="layui-btn layui-btn-xs" lay-event="detail">
+                                    <i class="layui-icon layui-icon-form"></i>查看
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">
+                                    <i class="layui-icon layui-icon-delete"></i>删除
+                                </button>
+                            </div>`;
+                    }
+                }
+            ]],
+            done: function(res, curr, count) {
+                console.log('表格渲染完成:', res, curr, count);
+                if(!res.data || res.data.length === 0) {
+                    // 临时测试数据 - 正式环境请移除
+                    table.reload('returnTable', {
+                        data: [{
+                            returnId: 1,
+                            carName: '奔驰e300l',
+                            category: '奔驰',
+                            kind: '油车',
+                            username: 'sentinel',
+                            carImage: '/static/images/1843946c-0a2d-486a-9d78-617dc1a8052d_0.png',
+                            carStatus: 1,
+                            returnCreateTime: '2025-03-29T08:51:22.000+00:00',
+                            returnUpdateTime: '2025-03-29T08:51:22.000+00:00',
+                            phone: '15327233278'
+                        }],
+                        count: 1
+                    });
+                }
+            },
+            error: function(res, msg) {
+                console.error('表格加载错误:', res, msg);
+                layer.msg('数据加载失败: ' + (res.msg || msg), {icon: 2});
+            }
+        });
+
+        // 搜索功能
+        form.on('submit(search)', function (data) {
+            table.reload('returnTable', {
+                where: {
+                    returnNo: data.field.returnNo,
+                    carName: data.field.carName
+                },
+                page: { curr: 1 }
+            });
+            return false;
+        });
+
+        // 工具栏事件处理
+        table.on('toolbar(returnTable)', function (obj) {
+            switch (obj.event) {
+                case 'batchDel':
+                    let checkData = table.checkStatus(obj.config.id);
+                    if (checkData.data.length === 0) {
+                        return layer.msg('请选择要删除的归还记录', {icon: 3});
+                    }
+
+                    const confirmIndex = layer.confirm('确定删除选中的'+checkData.data.length+'条归还记录吗？', {
+                        icon: 3,
+                        title: '批量删除确认'
+                    }, function() {
+                        layer.close(confirmIndex);
+                        const loading = layer.msg('正在删除...', {
+                            icon: 16,
+                            time: 0
+                        });
+
+                        $.ajax({
+                            url: "/return/batch",
+                            type: "DELETE",
+                            contentType: "application/json",
+                            data: JSON.stringify(checkData.data.map(item => item.returnId)),
+                            complete: () => layer.close(loading),
+                                success: function (res) {
+                                    if (res.code === 0) {  // 同步为后端返回的状态码
+                                        layer.msg(`成功删除${res.data}条数据`, {icon: 1});
+                                        table.reload('returnTable');
+                                    } else {
+                                        layer.msg(res.msg || '删除失败', {icon: 2});
+                                    }
+
+                            },
+                            error: () => layer.msg('请求异常', {icon: 2})
+                        });
+                    });
+                    break;
+            }
+        });
+
+        // 行工具事件处理
+        table.on('tool(returnTable)', function (obj) {
+            let data = obj.data;
+            switch (obj.event) {
+                case 'detail':
+                    // 查看详情
+                    layer.open({
+                        title: '归还记录详情 - ' + data.returnId,
+                        type: 1,
+                        area: ['600px', '500px'],
+                        content: `
+                            <div style="padding: 20px;">
+                                <div class="layui-row layui-col-space10">
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">归还单号:</label>
+                                            <div class="layui-input-block">${data.returnId}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆名称:</label>
+                                            <div class="layui-input-block">${data.carName}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆品牌:</label>
+                                            <div class="layui-input-block">${data.category}</div>
+                                        </div>
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">车辆类型:</label>
+                                            <div class="layui-input-block">${data.kind === "油车" ? "燃油车" : (data.kind === "电车" ? "电动车" : data.kind)}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">租车人:</label>
+                                            <div class="layui-input-block">${data.username}</div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">联系电话:</label>
+                                            <div class="layui-input-block">${data.phone || '未填写'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">车辆图片:</label>
+                                    <div class="layui-input-block">
+                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='/static/images/default-car.png'">
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">归还状态:</label>
+                                    <div class="layui-input-block">
+                                        <span class="status-badge ${data.carStatus === 1 ? 'status-returned' : 'status-not-returned'}">
+                                            ${data.carStatus === 1 ? '已归还' : '未归还'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">创建时间:</label>
+                                    <div class="layui-input-block">${dateFormatter(data.returnCreateTime)}</div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">更新时间:</label>
+                                    <div class="layui-input-block">${dateFormatter(data.returnUpdateTime)}</div>
+                                </div>
+                            </div>
+                        `,
+                        btn: ['关闭'],
+                        btnAlign: 'c'
+                    });
+                    break;
+                case 'del':
+                    const deleteIndex = layer.confirm('确定删除归还记录 '+data.returnId+'？', {
+                        icon: 3,
+                        title: '删除确认'
+                    }, function() {
+                        layer.close(deleteIndex);
+                        const loading = layer.msg('删除中...', {icon: 16, time:0});
+
+                        $.ajax({
+                            url: "/return/" + data.returnId,
+                            type: "DELETE",
+                            complete: () => layer.close(loading),
+                            success: function (res) {
+                                if (res.code === 0) {  // 同步为后端返回的状态码
+                                    layer.msg('删除成功', {icon: 1});
+                                    table.reload('returnTable');
+                                } else {
+                                    layer.msg(res.msg || '删除失败', {icon: 2});
+                                }
+                            }
+                        });
+                    });
+                    break;
+            }
+        });
+    });
+</script>
+</body>
+</html>

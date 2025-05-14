@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wut.zn.mapper.ReturnMapper">
+
+    <resultMap id="ReturnCarResultMap" type="com.wut.zn.entity.dto.ReturnCarDTO">
+        <!-- 归还表字段 -->
+        <id property="returnId" column="r_id"/>
+        <result property="userId" column="r_user_id"/>
+        <result property="carId" column="r_car_id"/>
+        <result property="returnCreateTime" column="r_create_time"/>
+        <result property="returnUpdateTime" column="r_update_time"/>
+
+        <!-- 车辆表字段 -->
+        <result property="carName" column="c_name"/>
+        <result property="carImage" column="c_image"/>
+        <result property="carStatus" column="c_status"/>
+        <result property="carCreateTime" column="c_create_time"/>
+        <result property="carUpdateTime" column="c_update_time"/>
+
+        <!-- 用户表字段 -->
+        <result property="username" column="u_username"/>
+        <result property="phone" column="u_phone"/>
+
+        <!-- 车辆类别表字段 -->
+        <result property="category" column="cc_category"/>
+
+        <!-- 车辆类型表字段 -->
+        <result property="kind" column="k_kind"/>
+    </resultMap>
+
+    <select id="selectReturnCarList" resultMap="ReturnCarResultMap">
+        SELECT
+        r.id AS r_id,
+        r.user_id AS r_user_id,
+        r.car_id AS r_car_id,
+        r.create_time AS r_create_time,
+        r.update_time AS r_update_time,
+
+        c.name AS c_name,
+        c.image AS c_image,
+        c.status AS c_status,
+        c.create_time AS c_create_time,
+        c.update_time AS c_update_time,
+
+        u.username AS u_username,
+        u.phone AS u_phone,
+
+        cc.category AS cc_category,
+
+        k.kind AS k_kind
+        FROM
+        `return` r
+        LEFT JOIN car c ON r.car_id = c.id
+        LEFT JOIN user u ON r.user_id = u.id
+        LEFT JOIN car_category cc ON c.car_categoryid = cc.id
+        LEFT JOIN kinds k ON c.kindid = k.id
+        <where>
+            <if test="returnNo != null">
+                AND r.id = #{returnNo}
+            </if>
+            <if test="carName != null and carName != ''">
+                AND c.name LIKE CONCAT('%', #{carName}, '%')
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+</mapper>
