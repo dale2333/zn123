@@ -16,22 +16,26 @@
         #orderTable {
             height: calc(100% - 100px);
         }
+        /* 优化图片显示样式 - 与车辆管理系统保持一致 */
         .car-img {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            cursor: zoom-in;
-            transition: transform 0.3s ease;
+            width: 120px;
+            height: 80px;
+            object-fit: contain;
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid #eee;
+            background-color: #fff;
+            padding: 2px;
         }
         .car-img:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: scale(2);
+            z-index: 999;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
         }
         .default-img {
-            width: 50px;
-            height: 50px;
+            width: 120px;
+            height: 80px;
             background-color: #f2f2f2;
             display: flex;
             align-items: center;
@@ -39,6 +43,7 @@
             color: #999;
             font-size: 12px;
             border-radius: 4px;
+            border: 1px solid #eee;
         }
         .status-badge {
             padding: 3px 8px;
@@ -115,6 +120,7 @@
             limits: [5, 10, 15, 20],
             limit: 10,
             loading: true,
+            lineStyle: 'height: 120px',
             text: {
                 none: '暂无相关数据'
             },
@@ -134,12 +140,19 @@
             parseData: function (res) {
                 console.log("原始响应数据:", res);
 
-                // 统一处理图片路径 - 指向static/images目录
+                // 统一处理图片路径和数据格式
                 if(res.data && Array.isArray(res.data)) {
-                    res.data = res.data.map(item => ({
-                        ...item,
-                        image: item.image ? `/images/${item.image}` : '/static/images/default-car.png'
-                    }));
+                    res.data = res.data.map(item => {
+                        return {
+                            ...item,
+                            // 处理图片路径
+                            image: item.image 
+                                ? (item.image.startsWith('/') ? item.image : '/images/' + item.image)
+                                : '/images/default.jpg',
+                            // 确保租赁天数有值
+                            days: item.days || 0
+                        };
+                    });
                 }
 
                 // 处理标准格式
@@ -159,7 +172,7 @@
                         return d.kind === "油车" ? "燃油车" : (d.kind === "电车" ? "电动车" : d.kind);
                     }},
                 {title: "用户名", field: "username", width: 120},
-                {title: "租赁天数", field: "days", width: 120},
+                // {title: "租赁天数", field: "days", width: 120},
                 {
                     title: "车辆图片",
                     templet: function(d) {
@@ -169,9 +182,10 @@
                         return `<img src="${d.image}"
                                    class="car-img"
                                    alt="车辆图片"
-                                   onerror="this.src='/images/default.jpg';this.onerror=null">`;
+                                   onerror="this.src='/images/default.jpg';this.onerror=null"
+                                   lay-event="imgPreview">`;
                     },
-                    width: 100
+                    width: 160
                 },
                 {
                     title: "状态",
@@ -267,6 +281,57 @@
 
         // 行工具事件处理
         table.on('tool(orderTable)', function (obj) {
+            if(obj.event === 'imgPreview'){
+                var photoLayer = layer.photos({
+                    photos: {
+                        title: '查看车辆图片',
+                        id: 'order-photos',
+                        data: [{
+                            src: obj.data.image,
+                            alt: obj.data.name || '车辆图片'
+                        }]
+                    },
+                    anim: 5,
+                    shade: 0.8,
+                    closeBtn: 1,
+                    shadeClose: true,
+                    maxmin: true,
+                    success: function(layero, index){
+                        // 自动最大化显示
+                        layer.full(index);
+                        
+                        // 图片居中显示
+                        layero.find('.layui-layer-content').css({
+                            'height': '100%',
+                            'overflow': 'hidden',
+                            'display': 'flex',
+                            'align-items': 'center',
+                            'justify-content': 'center'
+                        });
+                        
+                        // 图片样式优化
+                        layero.find('img').css({
+                            'max-height': '100%',
+                            'max-width': '100%',
+                            'object-fit': 'contain',
+                            'box-shadow': '0 0 20px rgba(0,0,0,0.15)'
+                        });
+                        
+                        // 添加点击图片全屏事件
+                        layero.find('img').on('click', function() {
+                            if (!document.fullscreenElement) {
+                                layero.find('.layui-layer-content')[0].requestFullscreen().catch(err => {
+                                    layer.msg('全屏请求被拒绝: ' + err.message, {time: 1000});
+                                });
+                            } else {
+                                document.exitFullscreen();
+                            }
+                        });
+                    }
+                });
+                return false;
+            }
+            
             let data = obj.data;
             switch (obj.event) {
                 case 'detail':
@@ -298,11 +363,15 @@
                                     <div class="detail-value">${data.username}</div>
                                 </div>
                                 <div class="detail-row">
+                                    <div class="detail-label">租赁天数:</div>
+                                    <div class="detail-value">${data.days || 0} 天</div>
+                                </div>
+                                <div class="detail-row">
                                     <div class="detail-label">车辆图片:</div>
                                     <div class="detail-value">
-                                        <img src="${data.image || '/static/images/default-car.png'}"
+                                        <img src="${data.image || '/images/default.jpg'}"
                                              style="max-width: 200px; max-height: 150px;"
-                                             onerror="this.src='/static/images/default.jpg';this.onerror=null">
+                                             onerror="this.src='/images/default.jpg'">
                                     </div>
                                 </div>
                                 <div class="detail-row">

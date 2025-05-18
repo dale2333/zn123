@@ -16,18 +16,28 @@
         #returnTable {
             height: calc(100% - 100px);
         }
+        .layui-table-cell {
+            height: auto;
+            line-height: 36px;
+            padding: 15px 20px;
+        }
+        /* 优化图片显示样式 - 与车辆管理系统保持一致 */
         .car-img {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            cursor: zoom-in;
-            transition: transform 0.3s ease;
+            width: 120px;
+            height: 80px;
+            object-fit: contain;
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid #eee;
+            background-color: #fff;
+            padding: 2px;
         }
         .car-img:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: scale(2);
+            z-index: 999;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            cursor: pointer;
         }
         .status-badge {
             padding: 3px 8px;
@@ -100,6 +110,7 @@
             limits: [5, 10, 15, 20],
             limit: 10,
             loading: true,
+            lineStyle: 'height: 120px',
             text: {
                 none: '暂无相关数据'
             },
@@ -134,7 +145,9 @@
                 if(Array.isArray(res)) {
                     res = res.map(item => ({
                         ...item,
-                        carImage: item.carImage ? `/static${item.carImage}` : '/static/images/default-car.png'
+                        carImage: item.carImage 
+                            ? (item.carImage.startsWith('/') ? item.carImage : '/images/' + item.carImage)
+                            : '/images/default.jpg'
                     }));
                 }
 
@@ -157,9 +170,9 @@
                 {
                     title: "车辆图片",
                     templet: function(d) {
-                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='/static/images/default-car.png'">`;
+                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='/images/default.jpg'" lay-event="imgPreview">`;
                     },
-                    width: 100
+                    width: 160
                 },
                 {
                     title: "归还状态",
@@ -269,8 +282,59 @@
             }
         });
 
-        // 行工具事件处理
-        table.on('tool(returnTable)', function (obj) {
+        // 图片点击预览和行工具事件处理
+        table.on('tool(returnTable)', function(obj){
+            if(obj.event === 'imgPreview'){
+                var photoLayer = layer.photos({
+                    photos: {
+                        title: '查看车辆图片',
+                        id: 'return-photos',
+                        data: [{
+                            src: obj.data.carImage,
+                            alt: obj.data.carName || '车辆图片'
+                        }]
+                    },
+                    anim: 5,
+                    shade: 0.8,
+                    closeBtn: 1,
+                    shadeClose: true,
+                    maxmin: true,
+                    success: function(layero, index){
+                        // 自动最大化显示
+                        layer.full(index);
+                        
+                        // 图片居中显示
+                        layero.find('.layui-layer-content').css({
+                            'height': '100%',
+                            'overflow': 'hidden',
+                            'display': 'flex',
+                            'align-items': 'center',
+                            'justify-content': 'center'
+                        });
+                        
+                        // 图片样式优化
+                        layero.find('img').css({
+                            'max-height': '100%',
+                            'max-width': '100%',
+                            'object-fit': 'contain',
+                            'box-shadow': '0 0 20px rgba(0,0,0,0.15)'
+                        });
+                        
+                        // 添加点击图片全屏事件
+                        layero.find('img').on('click', function() {
+                            if (!document.fullscreenElement) {
+                                layero.find('.layui-layer-content')[0].requestFullscreen().catch(err => {
+                                    layer.msg('全屏请求被拒绝: ' + err.message, {time: 1000});
+                                });
+                            } else {
+                                document.exitFullscreen();
+                            }
+                        });
+                    }
+                });
+                return false;
+            }
+
             let data = obj.data;
             switch (obj.event) {
                 case 'detail':
@@ -314,7 +378,7 @@
                                 <div class="layui-form-item">
                                     <label class="layui-form-label">车辆图片:</label>
                                     <div class="layui-input-block">
-                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='/static/images/default-car.png'">
+                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='/images/default.jpg'">
                                     </div>
                                 </div>
                                 <div class="layui-form-item">

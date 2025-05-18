@@ -4,6 +4,16 @@
     <meta charset="utf-8">
     <title>编辑品牌</title>
     <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .layui-form-label {
+            width: 120px;
+            text-align: right;
+            padding-right: 10px;
+        }
+        .layui-input-block {
+            margin-left: 120px;
+        }
+    </style>
 </head>
 <body>
 <div class="layui-container" style="margin-top: 20px;">
@@ -42,11 +52,11 @@
             if (res.code === 0) {
                 form.val('form', res.data);
             } else {
-                layer.msg('数据加载失败: ' + res.message);
+                layer.msg('数据加载失败: ' + res.message, {time: 1000});
                 parent.layer.closeAll();
             }
         }).fail(function(xhr) {
-            layer.msg('请求失败: ' + xhr.status);
+            layer.msg('请求失败: ' + xhr.status, {time: 1000});
             parent.layer.closeAll();
         });
 
@@ -62,16 +72,16 @@
                 }),
                 success: function(res) {
                     if (res.code === 0) {
-                        layer.msg('修改成功', function(){
+                        layer.msg('修改成功', {time: 1000}, function(){
                             parent.layer.closeAll();
                             parent.layui.table.reload('categoryTable');
                         });
                     } else {
-                        layer.msg(res.message || "修改失败");
+                        layer.msg(res.message || "修改失败", {time: 1000});
                     }
                 },
                 error: function(xhr) {
-                    layer.msg("请求失败: " + xhr.status);
+                    layer.msg("请求失败: " + xhr.status, {time: 1000});
                 }
             });
             return false;

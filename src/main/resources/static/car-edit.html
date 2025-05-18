@@ -20,12 +20,12 @@
             font-weight: normal;
         }
         .layui-form-label {
-            width: 100px;
-            text-align: left;
-            padding-left: 0;
+            width: 120px;
+            text-align: right;
+            padding-right: 10px;
         }
         .layui-input-block {
-            margin-left: 100px;
+            margin-left: 120px;
         }
         .preview-img {
             width: 120px;
@@ -46,16 +46,13 @@
         .network-error {
             color: #FF5722;
             margin-top: 5px;
+            display: none;
         }
     </style>
 </head>
 <body>
-<div class="edit-container">
-    <div class="edit-header">
-        <h2>编辑车辆 - <span id="carTitle">小米su7utral</span></h2>
-    </div>
 
-    <form class="layui-form" id="carForm">
+    <form class="layui-form" id="carForm" lay-filter="carForm">
         <input type="hidden" name="id">
 
         <!-- 车辆名称 -->
@@ -84,6 +81,7 @@
                 <select name="kindId" lay-search>
                     <option value="">请选择类型</option>
                 </select>
+                <div class="network-error" id="kindError">服务连接失败，请检查网络</div>
             </div>
         </div>
 
@@ -132,10 +130,10 @@
             var carId = urlParams.get('id');
 
             if (!carId || isNaN(carId)) {
-                layer.msg('无效的车辆ID', {icon: 2});
+                layer.msg('无效的车辆ID', {icon: 2, time: 1000});
                 setTimeout(function() {
                     parent.layer.closeAll();
-                }, 2000);
+                }, 500);
                 return null;
             }
 
@@ -145,6 +143,11 @@
 
         // 2. 加载分类和类型数据
         function loadSelectOptions() {
+            $('#categoryError').hide();
+            $('#kindError').hide();
+            
+            var loadIndex = layer.load(1, {shade: 0.3});
+            
             return $.when(
                 $.get('/car/categories').fail(function(){
                     $('#categoryError').show();
@@ -153,6 +156,8 @@
                     $('#kindError').show();
                 })
             ).then(function(categoriesRes, kindsRes){
+                layer.close(loadIndex);
+                
                 // 填充车辆分类
                 if(categoriesRes && categoriesRes[0].code === 0) {
                     var $categorySelect = $('select[name="categoryId"]');
@@ -181,6 +186,11 @@
                 }
 
                 form.render('select');
+                return true;
+            }).fail(function(err){
+                layer.close(loadIndex);
+                console.error("加载选项数据失败:", err);
+                return false;
             });
         }
 
@@ -192,25 +202,51 @@
                 layer.close(loadIndex);
                 if(res.code === 0) {
                     var car = res.data;
-                    $('#carTitle').text(car.name || '未知车辆');
+                    console.log("获取到的车辆数据:", JSON.stringify(car)); // 使用JSON.stringify输出完整数据
+                    
+                    // 检查数据字段
+                    if (!car.id || !car.name) {
+                        console.error("获取的车辆数据不完整");
+                        layer.msg('车辆数据不完整', {icon: 2, time: 1000});
+                        return;
+                    }
 
-                    // 设置表单值
-                    form.val('carForm', {
-                        "name": car.name,
-                        "categoryId": car.carCategoryId,
-                        "kindId": car.kindId,
-                        "money": car.money,
-                        "image": car.image
-                    });
-
-                    // 单独设置图片预览
-                    $('#carImage').attr('src', car.image || '/images/default.jpg');
+                    try {
+                        // 填充表单
+                        form.val('carForm', {
+                            "id": car.id,
+                            "name": car.name,
+                            "categoryId": car.carCategoryId,
+                            "kindId": car.kindId,
+                            "money": car.money,
+                            "image": car.image
+                        });
+                        
+                        // 单独设置图片预览
+                        $('#carImage').attr('src', car.image || '/images/default.jpg');
+                        
+                        // 重新渲染表单
+                        form.render();
+                        
+                        console.log("表单已填充");
+                    } catch (e) {
+                        console.error("设置表单值时出错:", e);
+                        layer.msg('设置表单值时出错:' + e.message, {icon: 2, time: 1000});
+                    }
                 } else {
-                    layer.msg(res.message || '加载失败', {icon: 2});
+                    console.error("获取车辆数据失败:", res.message);
+                    layer.msg(res.message || '加载失败', {icon: 2, time: 1000});
+                    setTimeout(function() {
+                        parent.layer.closeAll();
+                    }, 500);
                 }
-            }).fail(function(){
+            }).fail(function(xhr){
                 layer.close(loadIndex);
-                layer.msg('请求失败', {icon: 2});
+                console.error("请求失败:", xhr.responseText);
+                layer.msg('请求失败: ' + xhr.status, {icon: 2, time: 1000});
+                setTimeout(function() {
+                    parent.layer.closeAll();
+                }, 500);
             });
         }
 
@@ -230,14 +266,14 @@
                     var imageUrl = res.data.url || ('/images/' + res.data.filename);
                     $('#carImage').attr('src', imageUrl + '?t=' + new Date().getTime());
                     $('input[name="image"]').val(imageUrl);
-                    layer.msg('图片更新成功', {icon: 1});
+                    layer.msg('图片更新成功', {icon: 1, time: 1000});
                 } else {
-                    layer.msg(res.msg || '上传失败', {icon: 2});
+                    layer.msg(res.msg || '上传失败', {icon: 2, time: 1000});
                 }
             },
             error: function(){
                 layer.closeAll('loading');
-                layer.msg('上传服务异常', {icon: 2});
+                layer.msg('上传服务异常', {icon: 2, time: 1000});
             }
         });
 
@@ -245,7 +281,7 @@
         form.on('submit(formSubmit)', function(data){
             var carId = $('input[name="id"]').val();
             if(!carId) {
-                return layer.msg('无效的车辆ID', {icon: 2});
+                return layer.msg('无效的车辆ID', {icon: 2, time: 1000});
             }
 
             var loadIndex = layer.load(1, {shade: 0.3});
@@ -267,17 +303,18 @@
                 success: function(res){
                     layer.close(loadIndex);
                     if(res.code === 0) {
-                        layer.msg('修改成功', {icon: 1}, function(){
-                            parent.layer.closeAll();
+                        layer.msg('修改成功', {icon: 1, time: 1000}, function(){
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
                             parent.layui.table.reload('carTable');
                         });
                     } else {
-                        layer.msg(res.message || '操作失败', {icon: 2});
+                        layer.msg(res.message || '操作失败', {icon: 2, time: 1000});
                     }
                 },
-                error: function(xhr){
+                error: function(xhr) {
                     layer.close(loadIndex);
-                    layer.msg('请求失败: ' + xhr.status, {icon: 2});
+                    layer.msg('请求失败: ' + xhr.status, {icon: 2, time: 1000});
                 }
             });
             return false;
@@ -296,8 +333,20 @@
         // 初始化页面
         var carId = initCarId();
         if(carId) {
-            loadSelectOptions().then(function(){
-                loadCarDetails(carId);
+            // 先完整加载分类和类型数据
+            var loadOptionsPromise = loadSelectOptions();
+            
+            // 等待选项加载完成后再加载车辆详情
+            loadOptionsPromise.then(function(success) {
+                if(success) {
+                    // 确保下拉框已完全渲染好
+                    setTimeout(function() {
+                        console.log("开始加载车辆详情数据");
+                        loadCarDetails(carId);
+                    }, 300);
+                } else {
+                    layer.msg('加载选项数据失败，请刷新重试', {icon: 2, time: 1000});
+                }
             });
         }
     });

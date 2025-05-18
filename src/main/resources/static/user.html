@@ -121,7 +121,7 @@
                 case 'batchDel':
                     let checkData = table.checkStatus(obj.config.id);
                     if (checkData.data.length === 0) {
-                        layer.msg('请选择要删除的用户');
+                        layer.msg('请选择要删除的用户', {time: 1000});
                         return;
                     }
                     layer.confirm('确认删除选中的 '+checkData.data.length+' 个用户？', function () {
@@ -133,7 +133,7 @@
                             data: JSON.stringify(ids),
                             success: function (res) {
                                 if (res.code === 0) {
-                                    layer.msg("删除成功");
+                                    layer.msg("删除成功", {time: 1000});
                                     table.reload('userTable');
                                 }
                             }
@@ -154,7 +154,7 @@
                             type: "DELETE",
                             success: function (res) {
                                 if (res.code === 0) {
-                                    layer.msg("删除成功");
+                                    layer.msg("删除成功", {time: 1000});
                                     table.reload('userTable');
                                 }
                             }

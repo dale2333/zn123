@@ -41,7 +41,7 @@
                 data: JSON.stringify(data.field),
                 success: function(res) {
                     if (res.code === 0) {
-                        layer.msg('添加成功', function(){
+                        layer.msg('添加成功', {time: 1000}, function(){
                             parent.layer.closeAll();
                             parent.layui.table.reload('categoryTable');
                         });

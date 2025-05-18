@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>车辆归还管理系统</title>
+    <title>车辆归还系统</title>
     <link rel="stylesheet" href="/layui/css/layui.css">
     <style>
         html, body {
@@ -59,7 +59,7 @@
 </head>
 <body>
 <div class="layui-fluid">
-    <h1 class="system-title">车辆归还管理系统</h1>
+    <h1 class="system-title">车辆归还系统</h1>
 
     <!-- 查询表单 -->
     <form class="layui-form layui-row layui-col-space5">
@@ -151,7 +151,7 @@
                 if(Array.isArray(res)) {
                     res = res.map(item => ({
                         ...item,
-                        carImage: item.carImage ? `/static${item.carImage}` : '/static/images/default-car.png'
+                        carImage: item.carImage ? `${item.carImage}` : 'default-car.png'
                     }));
                 }
 
@@ -174,7 +174,7 @@
                 {
                     title: "车辆图片",
                     templet: function(d) {
-                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='/static/images/default-car.png'">`;
+                        return `<img src="${d.carImage}" class="car-img" onerror="this.src='default-car.png'">`;
                     },
                     width: 100
                 },
@@ -290,7 +290,7 @@
                                 <div class="layui-form-item">
                                     <label class="layui-form-label">车辆图片:</label>
                                     <div class="layui-input-block">
-                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='/static/images/default-car.png'">
+                                        <img src="${data.carImage}" style="max-width: 200px;" onerror="this.src='default-car.png'">
                                     </div>
                                 </div>
                                 <div class="layui-form-item">

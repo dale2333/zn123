@@ -5,30 +5,41 @@
     <title>车辆管理系统</title>
     <link rel="stylesheet" href="/layui/css/layui.css">
     <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        .layui-form { margin-bottom: 10px; }
+        #carTable { height: calc(100% - 100px); }
+        .layui-table-cell {
+            height: auto;
+            line-height: 40px;
+            padding: 20px;
+        }
+        
         /* 优化图片显示样式 */
         .car-img {
-            width: 60px;
-            height: 40px;
-            object-fit: cover;
+            width: 120px;
+            height: 80px;
+            object-fit: contain;
             border-radius: 4px;
             transition: all 0.3s;
             cursor: pointer;
             border: 1px solid #eee;
+            background-color: #fff;
+            padding: 2px;
         }
         .car-img:hover {
-            transform: scale(1.8);
+            transform: scale(2);
             z-index: 999;
             box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            position: relative;
         }
-        /* 表格优化 */
-        .layui-table-cell {
-            height: auto;
-            padding: 5px 10px;
-        }
-        /* 搜索栏间距 */
-        .layui-form-item .layui-inline {
-            margin-right: 0;
-            margin-bottom: 10px;
+        
+        /* 操作按钮样式 */
+        .layui-btn-xs {
+            height: 22px;
+            line-height: 22px;
+            padding: 0 5px;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -37,45 +48,31 @@
     <h1 style="text-align: center; margin: 20px 0; color: #1E9FFF;">车辆信息管理系统</h1>
 
     <!-- 搜索表单 -->
-    <form class="layui-form" id="searchForm">
-        <div class="layui-form-item">
-            <div class="layui-inline">
-                <input type="text" name="name" placeholder="车辆名称" class="layui-input">
-            </div>
-            <div class="layui-inline">
-                <select name="category" lay-search>
-                    <option value="">所有分类</option>
-                </select>
-            </div>
-            <div class="layui-inline">
-                <select name="kind" lay-search>
-                    <option value="">所有类型</option>
-                </select>
-            </div>
-            <div class="layui-inline">
-                <button class="layui-btn" lay-submit lay-filter="search">
-                    <i class="layui-icon layui-icon-search"></i> 搜索
-                </button>
-                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
-            </div>
+    <form class="layui-form layui-row layui-col-space5">
+        <div class="layui-col-md3">
+            <input type="text" name="name" placeholder="车辆名称" class="layui-input">
+        </div>
+        <div class="layui-col-md3">
+            <select name="category" lay-search>
+                <option value="">所有分类</option>
+            </select>
+        </div>
+        <div class="layui-col-md3">
+            <select name="kind" lay-search>
+                <option value="">所有类型</option>
+            </select>
+        </div>
+        <div class="layui-col-md3">
+            <button class="layui-btn" lay-submit lay-filter="search">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+            </button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
         </div>
     </form>
 
     <!-- 数据表格 -->
-    <table id="carTable" lay-filter="carTable"></table>
+    <table class="layui-hide" id="carTable" lay-filter="carTable"></table>
 </div>
-
-<!-- 操作列模板 -->
-<script type="text/html" id="barDemo">
-    <div class="layui-btn-group">
-        <button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">
-            <i class="layui-icon layui-icon-edit"></i> 编辑
-        </button>
-        <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">
-            <i class="layui-icon layui-icon-delete"></i> 删除
-        </button>
-    </div>
-</script>
 
 <!-- 工具栏模板 -->
 <script type="text/html" id="toolbarDemo">
@@ -89,13 +86,24 @@
     </div>
 </script>
 
+<!-- 操作列模板 -->
+<script type="text/html" id="barDemo">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+</script>
+
 <script src="/layui/layui.js"></script>
 <script>
-    layui.use(['table', 'form', 'layer', 'upload'], function(){
+    layui.use(['table', 'form', 'layer', 'util'], function(){
         var table = layui.table;
         var form = layui.form;
         var layer = layui.layer;
         var $ = layui.$;
+
+        // 时间格式化
+        function dateFormatter(time) {
+            return layui.util.toDateString(new Date(time), 'yyyy-MM-dd HH:mm:ss');
+        }
 
         // 初始化下拉框数据
         function initSelects() {
@@ -105,6 +113,10 @@
             ).done(function(categoriesRes, kindsRes){
                 var categorySelect = $('select[name="category"]');
                 var kindSelect = $('select[name="kind"]');
+                
+                // 清空旧选项
+                categorySelect.empty().append('<option value="">所有分类</option>');
+                kindSelect.empty().append('<option value="">所有类型</option>');
 
                 // 填充分类选项
                 (categoriesRes[0].data || []).forEach(function(item){
@@ -118,7 +130,7 @@
 
                 form.render('select');
             }).fail(function(){
-                layer.msg('加载分类数据失败', {icon: 2});
+                layer.msg('加载分类数据失败', {icon: 2, time: 1000});
             });
         }
 
@@ -126,23 +138,21 @@
         table.render({
             elem: '#carTable',
             url: '/car/paged',
-            method: 'GET',
             toolbar: '#toolbarDemo',
             height: 'full-180',
             page: true,
             limits: [5, 10, 15, 20],
             limit: 10,
+            lineStyle: 'height: 100px',
             request: {
                 pageName: 'pageNo',
                 limitName: 'pageSize'
             },
             parseData: function(res){
-                // 统一处理图片路径
                 if(res.data && res.data.list){
                     res.data.list = res.data.list.map(function(item){
                         return {
                             ...item,
-                            // 确保图片路径格式统一
                             image: item.image
                                 ? item.image.startsWith('/')
                                     ? item.image
@@ -166,61 +176,102 @@
                 {field: 'kind', title: '类型', width: 120},
                 {
                     title: '图片',
-                    width: 100,
+                    width: 160,
                     templet: function(d){
-                        return `<img src="${d.image}"
-                               class="car-img"
-                               onerror="this.src='/images/default.jpg'"
-                               lay-event="imgPreview">`;
+                        return '<img src="' + d.image + '" class="car-img" onerror="this.src=\'/images/default.jpg\'" lay-event="imgPreview">';
                     }
                 },
-                {field: 'money', title: '日租金', width: 120},
-                {
-                    field: 'createTime',
-                    title: '创建时间',
-                    width: 180,
-                    templet: function(d){
-                        return d.createTime
-                            ? layui.util.toDateString(d.createTime, 'yyyy-MM-dd HH:mm:ss')
-                            : '';
-                    }
-                },
-                {
-                    field: 'updateTime',
-                    title: '更新时间',
-                    width: 180,
-                    templet: function(d){
-                        return d.updateTime
-                            ? layui.util.toDateString(d.updateTime, 'yyyy-MM-dd HH:mm:ss')
-                            : '';
-                    }
-                },
-                {fixed: 'right', title: '操作', width: 150, toolbar: '#barDemo'}
-            ]],
-            done: function(){
-                // 图片加载失败时替换为默认图片
-                $('img[onerror]').on('error', function(){
-                    this.src = '/images/default.jpg';
-                });
-            }
+                {field: 'money', title: '日租金', width: 100},
+                {field: 'createTime', title: '创建时间', width: 180, templet: function(d){ return dateFormatter(d.createTime); }},
+                {field: 'updateTime', title: '更新时间', width: 180, templet: function(d){ return dateFormatter(d.updateTime); }},
+                {title: '操作', width: 150, fixed: 'right', toolbar: '#barDemo'}
+            ]]
         });
 
         // 图片点击预览
         table.on('tool(carTable)', function(obj){
-            var data = obj.data;
             if(obj.event === 'imgPreview'){
-                layer.photos({
+                var photoLayer = layer.photos({
                     photos: {
-                        title: data.name,
+                        title: '查看车辆图片',
+                        id: 'car-photos',
                         data: [{
-                            src: data.image,
-                            alt: data.name || '车辆图片'
+                            src: obj.data.image,
+                            alt: obj.data.name || '车辆图片'
                         }]
                     },
                     anim: 5,
+                    shade: 0.8,
+                    closeBtn: 1,
                     shadeClose: true,
-                    closeBtn: 1
+                    maxmin: true,
+                    success: function(layero, index){
+                        // 自动最大化显示
+                        layer.full(index);
+                        
+                        // 图片居中显示
+                        layero.find('.layui-layer-content').css({
+                            'height': '100%',
+                            'overflow': 'hidden',
+                            'display': 'flex',
+                            'align-items': 'center',
+                            'justify-content': 'center'
+                        });
+                        
+                        // 图片样式优化
+                        layero.find('img').css({
+                            'max-height': '100%',
+                            'max-width': '100%',
+                            'object-fit': 'contain',
+                            'box-shadow': '0 0 20px rgba(0,0,0,0.15)'
+                        });
+                        
+                        // 添加点击图片全屏事件
+                        layero.find('img').on('click', function() {
+                            if (!document.fullscreenElement) {
+                                layero.find('.layui-layer-content')[0].requestFullscreen().catch(err => {
+                                    layer.msg('全屏请求被拒绝: ' + err.message, {time: 1000});
+                                });
+                            } else {
+                                document.exitFullscreen();
+                            }
+                        });
+                    }
                 });
+                return false;
+            }
+            
+            var data = obj.data;
+            switch(obj.event){
+                case 'del':
+                    layer.confirm('确定删除车辆【' + data.name + '】吗？', function(index){
+                        $.ajax({
+                            url: '/car/' + data.id,
+                            type: 'DELETE',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('删除成功', {icon: 1, time: 1000});
+                                    table.reload('carTable');
+                                }else{
+                                    layer.msg(res.msg || '删除失败', {icon: 2, time: 1000});
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    });
+                    break;
+
+                case 'edit':
+                    layer.open({
+                        title: '编辑车辆 - ' + data.name,
+                        type: 2,
+                        content: '/static/car-edit.html?id=' + data.id,
+                        area: ['600px', '500px'],
+                        end: function(){
+                            table.reload('carTable');
+                        }
+                    });
+                    break;
             }
         });
 
@@ -244,9 +295,6 @@
                         type: 2,
                         content: '/static/car-add.html',
                         area: ['600px', '500px'],
-                        success: function(layero, index){
-                            // 可在此初始化表单数据
-                        },
                         end: function(){
                             table.reload('carTable');
                         }
@@ -255,13 +303,10 @@
 
                 case 'batchDel':
                     if(checkData.length === 0){
-                        return layer.msg('请先选择要删除的数据', {icon: 2});
+                        return layer.msg('请先选择要删除的数据', {icon: 2, time: 1000});
                     }
 
-                    layer.confirm(`确定删除选中的${checkData.length}条数据吗？`, {
-                        icon: 3,
-                        title: '删除确认'
-                    }, function(index){
+                    layer.confirm('确定删除选中的 ' + checkData.length + ' 条数据吗？', function(index){
                         var ids = checkData.map(function(item){ return item.id; });
 
                         $.ajax({
@@ -271,62 +316,14 @@
                             data: JSON.stringify(ids),
                             success: function(res){
                                 if(res.code === 0){
-                                    layer.msg(`成功删除${res.data}条数据`, {icon: 1});
+                                    layer.msg('成功删除 ' + res.data + ' 条数据', {icon: 1, time: 1000});
                                     table.reload('carTable');
                                 }else{
-                                    layer.msg(res.msg || '删除失败', {icon: 2});
-                                }
-                            },
-                            error: function(){
-                                layer.msg('请求异常', {icon: 2});
-                            }
-                        });
-                        layer.close(index);
-                    });
-                    break;
-            }
-        });
-
-        // 行工具事件
-        table.on('tool(carTable)', function(obj){
-            var data = obj.data;
-
-            switch(obj.event){
-                case 'del':
-                    layer.confirm(`确定删除车辆【${data.name}】吗？`, {
-                        icon: 3,
-                        title: '删除确认'
-                    }, function(index){
-                        $.ajax({
-                            url: '/car/' + data.id,
-                            type: 'DELETE',
-                            success: function(res){
-                                if(res.code === 0){
-                                    layer.msg('删除成功', {icon: 1});
-                                    table.reload('carTable');
-                                }else{
-                                    layer.msg(res.msg || '删除失败', {icon: 2});
+                                    layer.msg(res.msg || '删除失败', {icon: 2, time: 1000});
                                 }
                             }
                         });
                         layer.close(index);
-                    });
-                    break;
-
-                case 'edit':
-                    layer.open({
-                        title: '编辑车辆 - ' + data.name,
-                        type: 2,
-                        content: '/static/car-edit.html?id=' + obj.data.id,
-                        area: ['600px', '500px'],
-                        success: function(layero, index){
-                            // 向iframe传递当前数据
-                            var iframeWin = window[layero.find('iframe')[0].name];
-                            iframeWin.initFormData(data);
-                        },
-                        end: function(){
-                            table.reload('carTable');
-                        }
                     });
                     break;
             }

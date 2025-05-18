@@ -52,6 +52,7 @@
         c.name,
         k.kind as kind_name,
         c.image,
+        c.money,
         c.create_time,
         c.update_time,
         cc.category as category_name,

@@ -90,7 +90,9 @@
         // 搜索功能
         form.on('submit(search)', function (data) {
             table.reload('categoryTable', {
-                where: data.field,
+                where: {
+                    categoryName: data.field.category  // 修正这里，将字段名改为与后端接口匹配
+                },
                 page: { curr: 1 }
             });
             return false;
@@ -113,7 +115,7 @@
                 case 'batchDel':
                     let checkData = table.checkStatus(obj.config.id);
                     if (checkData.data.length === 0) {
-                        layer.msg('请选择要删除的分类');
+                        layer.msg('请选择要删除的分类', {time: 1000});
                         return;
                     }
                     layer.confirm('确认删除选中的 '+checkData.data.length+' 个分类？', function () {
@@ -125,7 +127,7 @@
                             data: JSON.stringify(ids),
                             success: function (res) {
                                 if (res.code === 0) {
-                                    layer.msg("删除成功");
+                                    layer.msg("删除成功", {time: 1000});
                                     table.reload('categoryTable');
                                 }
                             }
@@ -140,13 +142,13 @@
             let data = obj.data;
             switch (obj.event) {
                 case 'del':
-                    layer.confirm('确认删除分类 '+data.carCategory+'？', function () {
+                    layer.confirm('确认删除分类 '+data.category+'？', function () {  // 修正字段名从carCategory为category
                         $.ajax({
                             url: "/category/" + data.id,
                             type: "DELETE",
                             success: function (res) {
                                 if (res.code === 0) {
-                                    layer.msg("删除成功");
+                                    layer.msg("删除成功", {time: 1000});
                                     table.reload('categoryTable');
                                 }
                             }
@@ -161,7 +163,7 @@
                         area: ['400px', '250px'],
                         success: function (layero, index) {
                             let body = layer.getChildFrame('body', index);
-                            body.find('[name=carCategory]').val(data.carCategory);
+                            body.find('[name=category]').val(data.category);  // 修正字段名从carCategory为category
                         },
                         end: function () {
                             table.reload('categoryTable');

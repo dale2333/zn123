@@ -183,5 +183,45 @@ public class UserController {
         session.setAttribute("currentUser", currentUser);
         return Result.success().message("密码修改成功");
     }
+
+    // 添加用户更新接口
+    @PutMapping("/update")
+    public Result<?> updateUser(@RequestBody Map<String, Object> params) {
+        try {
+            // 获取用户ID
+            Long userId = Long.parseLong(params.get("id").toString());
+            
+            // 获取当前用户信息
+            User existingUser = userService.getUserById(userId);
+            if (existingUser == null) {
+                return Result.fail("用户不存在");
+            }
+            
+            // 设置要更新的字段
+            if (params.get("sex") != null) {
+                existingUser.setSex((String) params.get("sex"));
+            }
+            
+            if (params.get("phone") != null) {
+                existingUser.setPhone((String) params.get("phone"));
+            }
+            
+            // 处理密码：只有当密码不为空时才更新密码
+            String password = (String) params.get("password");
+            if (password != null && !password.trim().isEmpty()) {
+                // 密码长度校验
+                if (password.length() < 6 || password.length() > 20) {
+                    return Result.fail("密码必须6到20位且不能包含空格");
+                }
+                existingUser.setPassword(password);
+            }
+            
+            // 更新用户信息
+            userService.updateUser(existingUser);
+            return Result.success().message("用户更新成功");
+        } catch (Exception e) {
+            return Result.fail("更新用户失败: " + e.getMessage());
+        }
+    }
 }
 

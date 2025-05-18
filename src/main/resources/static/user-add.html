@@ -95,18 +95,18 @@
                 success: function(res) {
                     layer.close(loadIndex);
                     if (res.code === 0) {
-                        layer.msg("添加成功", { icon: 1 });
+                        layer.msg("添加成功", { icon: 1, time: 1000 });
                         setTimeout(function() {
                             parent.layer.closeAll(); // 关闭弹窗
                             parent.layui.table.reload('userTable'); // 刷新父页面表格
-                        }, 1500);
+                        }, 500);
                     } else {
-                        layer.msg(res.message || "添加失败", { icon: 2 });
+                        layer.msg(res.message || "添加失败", { icon: 2, time: 1000 });
                     }
                 },
                 error: function(xhr) {
                     layer.close(loadIndex);
-                    layer.msg("请求失败: " + xhr.status, { icon: 2 });
+                    layer.msg("请求失败: " + xhr.status, { icon: 2, time: 1000 });
                 }
             });
             return false; // 阻止表单默认提交
